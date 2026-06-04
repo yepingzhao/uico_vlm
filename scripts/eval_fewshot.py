@@ -23,9 +23,27 @@ from data.dataset import load_test_dataset
 from eval.ref_based import compute_ref_based_metrics
 from eval.ref_free import CLIPScorer
 
-# Models that support few-shot inference
-FEWSHOT_MODELS = ["llava", "qwen2vl", "llava-next"]
 FEWSHOT_K_VALUES = [1, 3, 5]
+
+
+def _get_fewshot_models():
+    """Discover which registered models support few-shot inference.
+
+    Returns:
+        List of model short names that implement generate_fewshot.
+    """
+    from models import get_wrapper
+
+    candidates = ["llava", "llava-next", "qwen2vl", "qwen3vl"]
+    available = []
+    for name in candidates:
+        try:
+            wrapper = get_wrapper(name)
+            if wrapper.supports_fewshot:
+                available.append(name)
+        except (ValueError, ImportError):
+            pass
+    return available
 
 
 def load_predictions(filepath: str) -> dict:
@@ -124,7 +142,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.all:
-        combos = [(m, k) for m in FEWSHOT_MODELS for k in FEWSHOT_K_VALUES]
+        fewshot_models = _get_fewshot_models()
+        print(f"[Discover] Few-shot models: {fewshot_models}")
+        combos = [(m, k) for m in fewshot_models for k in FEWSHOT_K_VALUES]
     else:
         combos = [(args.model, k) for k in args.k]
 

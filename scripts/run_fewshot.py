@@ -33,13 +33,7 @@ from config import (
 from data.dataset import load_test_dataset
 from fewshot.sampler import sample_examples
 from models.utils import load_checkpoint
-
-
-# Few-shot prompt template: k examples + instruction
-FEWSHOT_PROMPT = (
-    "Now describe any urban incivility or civic norm violations "
-    "visible in the image above in one or two sentences."
-)
+from prompts.templates import PROMPT_FEWSHOT
 
 
 from models import get_wrapper as _get_wrapper
@@ -112,7 +106,7 @@ def run_fewshot(
                     try:
                         caption = wrapper.generate_fewshot(
                             test_image_path=img_path,
-                            prompt_template=FEWSHOT_PROMPT,
+                            prompt_template=PROMPT_FEWSHOT,
                             example_images=example_images,
                             example_captions=example_captions,
                             max_new_tokens=MAX_NEW_TOKENS,
