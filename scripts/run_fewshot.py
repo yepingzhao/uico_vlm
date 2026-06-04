@@ -44,6 +44,7 @@ def run_fewshot(
     k_values: list,
     subsample: int = 0,
     device: str = "cuda:0",
+    overwrite: bool = False,
 ):
     """Run few-shot inference for each (model, k) combination.
 
@@ -52,6 +53,7 @@ def run_fewshot(
         k_values: [1, 3, 5].
         subsample: Number of test images (0 = full set).
         device: CUDA device.
+        overwrite: Delete existing predictions file before starting.
     """
     # Load test dataset
     ds = load_test_dataset(subsample=subsample, seed=RANDOM_SEED)
@@ -77,6 +79,11 @@ def run_fewshot(
             pred_file = os.path.join(
                 model_out_dir, f"predictions_fewshot_k{k}.jsonl"
             )
+
+            # Overwrite
+            if overwrite and os.path.exists(pred_file):
+                os.remove(pred_file)
+                print(f"[Overwrite] Removed existing {pred_file}")
 
             # Resume
             processed = load_checkpoint(pred_file)
@@ -157,14 +164,20 @@ if __name__ == "__main__":
         "--device", type=str, default="cuda:0",
         help="CUDA device."
     )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Delete existing predictions file before starting."
+    )
     args = parser.parse_args()
 
     print(f"[Config] models={args.models}, k={args.k}, "
-          f"subsample={args.subsample or 'full'}, device={args.device}")
+          f"subsample={args.subsample or 'full'}, device={args.device}"
+          f"{', overwrite' if args.overwrite else ''}")
 
     run_fewshot(
         model_names=args.models,
         k_values=args.k,
         subsample=args.subsample,
         device=args.device,
+        overwrite=args.overwrite,
     )

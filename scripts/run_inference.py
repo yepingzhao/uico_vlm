@@ -44,6 +44,7 @@ def run_inference(
     prompt_key: str,
     subsample: int = 0,
     device: str = "cuda:0",
+    overwrite: bool = False,
 ):
     """Run inference for each model on the test set.
 
@@ -52,6 +53,7 @@ def run_inference(
         prompt_key: Which prompt to use ("A", "B", "C").
         subsample: Number of images to use (0 = full test set).
         device: CUDA device string.
+        overwrite: Delete existing predictions file before starting.
     """
     prompt_text = PROMPT_MAP[prompt_key]
     print(f"[Prompt] {prompt_key}: {prompt_text[:100]}...")
@@ -74,6 +76,11 @@ def run_inference(
         pred_file = os.path.join(
             model_out_dir, f"predictions_prompt_{prompt_key.lower()}.jsonl"
         )
+
+        # Overwrite
+        if overwrite and os.path.exists(pred_file):
+            os.remove(pred_file)
+            print(f"[Overwrite] Removed existing {pred_file}")
 
         # Resume
         processed = load_checkpoint(pred_file)
@@ -143,14 +150,21 @@ if __name__ == "__main__":
         "--device", type=str, default="cuda:0",
         help="CUDA device."
     )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Delete existing predictions file before starting "
+             "(use when prompts change and old predictions are stale)."
+    )
     args = parser.parse_args()
 
     print(f"[Config] models={args.models}, prompt={args.prompt}, "
-          f"subsample={args.subsample or 'full'}, device={args.device}")
+          f"subsample={args.subsample or 'full'}, device={args.device}"
+          f"{', overwrite' if args.overwrite else ''}")
 
     run_inference(
         model_names=args.models,
         prompt_key=args.prompt,
         subsample=args.subsample,
         device=args.device,
+        overwrite=args.overwrite,
     )
