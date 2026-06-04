@@ -41,9 +41,15 @@ class InternVLBase(VLMWrapper):
         )
 
     def _load_model(self, model_id: str, device: str):
-        """Load the AutoModel with standard config."""
+        """Load the AutoModel with standard config.
+
+        Uses the local snapshot path (via find_snapshot_dir) to ensure
+        custom modeling code is found in offline mode (HF_HUB_OFFLINE=1).
+        """
+        from .utils import find_snapshot_dir
+        snap_dir = find_snapshot_dir(model_id)
         self._model = AutoModel.from_pretrained(
-            model_id,
+            snap_dir,
             torch_dtype=torch.float16,
             trust_remote_code=True,
             device_map=device,
