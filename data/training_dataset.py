@@ -25,7 +25,10 @@ class UICOInstructionDataset(Dataset):
         self,
         ann_file: str,
         processor,
-        user_prompt: str = "Describe this urban scene in one sentence.",
+        user_prompt: str = (
+            "In one sentence, describe any violation of urban order visible in "
+            "this image. State what the problem is and where it is located."
+        ),
         max_samples: int = 0,
         seed: int = 42,
     ):
