@@ -3,13 +3,16 @@
 
 Usage:
     # Quick test with 3 images, k=1
-    python -m vlm_eval.run_fewshot --models llava --k 1 --subsample 3
+    python run_fewshot.py --models llava --k 1 --subsample 3
 
-    # Dev run: 500 images, k=1,3,5 on both models
-    python -m vlm_eval.run_fewshot --models llava qwen2vl --k 1 3 5 --subsample 500
+    # Dev run: 500 images, k=1,3,5
+    python run_fewshot.py --models llava qwen2vl qwen3vl --k 1 3 5 --subsample 500
 
     # Full run: all 3500 images, k=1,3,5
-    python -m vlm_eval.run_fewshot --models llava qwen2vl --k 1 3 5
+    python run_fewshot.py --models llava qwen2vl qwen3vl --k 1 3 5
+
+    # Qwen3-VL few-shot (replaces standalone run_fewshot_qwen3vl.py)
+    python run_fewshot.py --models qwen3vl --k 1
 """
 
 import argparse
@@ -145,7 +148,7 @@ def run_fewshot(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Few-Shot VLM Inference")
     parser.add_argument(
-        "--models", nargs="+", default=["llava", "qwen2vl"],
+        "--models", nargs="+", default=["llava", "qwen2vl", "qwen3vl"],
         help="Model short names."
     )
     parser.add_argument(
