@@ -74,6 +74,22 @@ class InternVLBase(VLMWrapper):
         )
         self._model.eval()
 
+        # Workaround: InternLM2ForCausalLM doesn't inherit GenerationMixin
+        # in transformers >= 4.50, so .generate() is missing on the
+        # language_model inside InternVLChatModel.
+        if hasattr(self._model, "language_model"):
+            from transformers import GenerationMixin, GenerationConfig
+            lm = self._model.language_model
+            if not hasattr(lm, "generate"):
+                # Add GenerationMixin as a parent class
+                cls = type(lm)
+                cls.__bases__ = (GenerationMixin,) + cls.__bases__
+            # Ensure generation_config is initialized
+            if lm.generation_config is None:
+                lm.generation_config = GenerationConfig.from_model_config(
+                    lm.config
+                )
+
     def generate(self, image_path: str, prompt: str, **kwargs) -> str:
         """Generate caption using the model's chat() API.
 

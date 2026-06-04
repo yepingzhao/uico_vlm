@@ -375,12 +375,12 @@ class InternLM2Attention(nn.Module):
         value_states = value_states.transpose(1, 2)
 
         kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
+        if past_key_value is not None and past_key_value[0] is not None:
             kv_seq_len += past_key_value[0].shape[-2]
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
-        if past_key_value is not None:
+        if past_key_value is not None and past_key_value[0] is not None:
             # reuse k, v, self_attention
             key_states = torch.cat([past_key_value[0], key_states], dim=2)
             value_states = torch.cat([past_key_value[1], value_states], dim=2)
@@ -477,14 +477,14 @@ class InternLM2FlashAttention2(InternLM2Attention):
         value_states = value_states.transpose(1, 2)
 
         kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
+        if past_key_value is not None and past_key_value[0] is not None:
             kv_seq_len += past_key_value[0].shape[-2]
 
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
 
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
-        if past_key_value is not None:
+        if past_key_value is not None and past_key_value[0] is not None:
             # reuse k, v, self_attention
             key_states = torch.cat([past_key_value[0], key_states], dim=2)
             value_states = torch.cat([past_key_value[1], value_states], dim=2)
@@ -886,7 +886,7 @@ class InternLM2Model(InternLM2PreTrainedModel):
 
         seq_length_with_past = seq_length
         past_key_values_length = 0
-        if past_key_values is not None:
+        if past_key_values is not None and past_key_values[0] is not None and past_key_values[0][0] is not None:
             past_key_values_length = past_key_values[0][0].shape[2]
             seq_length_with_past = seq_length_with_past + past_key_values_length
 
@@ -1112,7 +1112,7 @@ class InternLM2ForCausalLM(InternLM2PreTrainedModel):
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
-        if past_key_values is not None:
+        if past_key_values is not None and past_key_values[0][0] is not None:
             past_length = past_key_values[0][0].shape[2]
 
             # Some generation methods already pass only the last input ID
