@@ -16,10 +16,9 @@ from .utils import find_snapshot_dir
 class InternVL25Wrapper(VLMWrapper):
 
     def __init__(self):
-        self._model = None
+        super().__init__()
         self._tokenizer = None
         self._img_processor = None
-        self._device = "cuda:0"
 
     @property
     def model_name(self) -> str:
