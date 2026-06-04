@@ -31,8 +31,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import (
     OUTPUT_DIR,
-    PROMPTS,
-    DEV_SAMPLE_SIZE,
     RANDOM_SEED,
     MAX_NEW_TOKENS,
 )

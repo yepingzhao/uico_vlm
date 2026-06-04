@@ -21,10 +21,7 @@ class DeepSeekVL2Wrapper(VLMWrapper):
         self._device = device
         model_id = "deepseek-ai/deepseek-vl2-small"
 
-        from deepseek_vl2.models import (
-            DeepseekVLV2Processor,
-            DeepseekVLV2ForCausalLM,
-        )
+        from deepseek_vl2.models import DeepseekVLV2Processor
         from transformers import AutoModelForCausalLM
 
         self._processor = DeepseekVLV2Processor.from_pretrained(model_id)
