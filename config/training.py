@@ -62,6 +62,12 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "processor_class_name": "LlavaNextProcessor",
         "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
     },
+    "qwen2vl": {
+        "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "model_class_name": "Qwen2_5_VLForConditionalGeneration",
+        "processor_class_name": "AutoProcessor",
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+    },
 }
 
 
