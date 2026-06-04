@@ -38,6 +38,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import DATA_BASE, OUTPUT_DIR
+from data.dataset import _resolve_image_path
+
+IMAGES_BASE_DIR = os.path.join(DATA_BASE, "images")
 
 
 # ── Config ──────────────────────────────────────────────────────────
@@ -110,7 +113,7 @@ class UICOInstructionDataset(Dataset):
 
         for img_id in image_ids:
             fname = id_to_file[img_id]
-            path = _resolve_image_path(fname)
+            path = _resolve_image_path(IMAGES_BASE_DIR, fname)
             if not os.path.exists(path):
                 continue
             captions = by_image[img_id]
@@ -175,18 +178,6 @@ class UICOInstructionDataset(Dataset):
             "input_ids": input_ids,
             "labels": labels,
         }
-
-
-def _resolve_image_path(file_name: str) -> str:
-    prefix_map = {
-        "CCMC_train": os.path.join(DATA_BASE, "images", "ccmc_train"),
-        "CCMC_val": os.path.join(DATA_BASE, "images", "ccmc_val"),
-        "CCMC_test": os.path.join(DATA_BASE, "images", "ccmc_test"),
-    }
-    for prefix, directory in prefix_map.items():
-        if file_name.startswith(prefix):
-            return os.path.join(directory, file_name)
-    return os.path.join(DATA_BASE, "images", file_name)
 
 
 # ── Training ──────────────────────────────────────────────────────────
