@@ -4,7 +4,6 @@ Uses the model's built-in chat interface which handles
 image preprocessing and generation internally.
 """
 
-import os
 import sys
 
 import torch

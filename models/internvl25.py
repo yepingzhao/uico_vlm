@@ -4,7 +4,6 @@ Same architecture as InternVL2-8B with updated training and
 dynamic resolution support. Uses the model's built-in chat() API.
 """
 
-import os
 import sys
 
 import torch
