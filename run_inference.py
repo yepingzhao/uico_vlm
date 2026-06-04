@@ -31,7 +31,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import (
     OUTPUT_DIR,
-    MODEL_REGISTRY,
     PROMPTS,
     DEV_SAMPLE_SIZE,
     RANDOM_SEED,
@@ -40,68 +39,7 @@ from config import (
 from data.dataset import load_test_dataset
 from prompts.templates import PROMPT_MAP
 from models.utils import load_checkpoint
-
-
-# Map short name → wrapper class
-def _get_wrapper(name: str):
-    from models.blip2 import BLIP2Wrapper
-    from models.instructblip import InstructBLIPWrapper
-    from models.llava import LLaVAWrapper
-    from models.internvl2 import InternVL2Wrapper
-    from models.qwen2vl import Qwen2VLWrapper
-    from models.qwen3vl import Qwen3VLWrapper
-    from models.phi35_vision import Phi35VisionWrapper
-    from models.phi4_multimodal import Phi4MultimodalWrapper
-    from models.paligemma2 import PaliGemma2Wrapper
-    from models.minicpm_v import MiniCPMVWrapper
-    from models.llava_next import LLaVANeXTWrapper
-    # Models that may fail with older transformers versions
-    try:
-        from models.idefics3 import Idefics3Wrapper
-        _idefics3_ok = True
-    except ImportError:
-        _idefics3_ok = False
-    from models.internvl25 import InternVL25Wrapper
-    from models.pixtral import PixtralWrapper
-    from models.llama32_vision import Llama32VisionWrapper
-
-    registry = {
-        "blip2": BLIP2Wrapper,
-        "instructblip": InstructBLIPWrapper,
-        "llava": LLaVAWrapper,
-        "internvl2": InternVL2Wrapper,
-        "qwen2vl": Qwen2VLWrapper,
-        "qwen3vl": Qwen3VLWrapper,
-        "phi35-vision": Phi35VisionWrapper,
-        "phi4-mm": Phi4MultimodalWrapper,
-        "paligemma2": PaliGemma2Wrapper,
-        "minicpm-v": MiniCPMVWrapper,
-        "llava-next": LLaVANeXTWrapper,
-        "internvl25": InternVL25Wrapper,
-        "pixtral": PixtralWrapper,
-        "llama32-vision": Llama32VisionWrapper,
-    }
-    if _idefics3_ok:
-        registry["idefics3"] = Idefics3Wrapper
-
-    # DeepSeek-VL2 requires external package — optional
-    try:
-        from models.deepseek_vl2 import DeepSeekVL2Wrapper
-        registry["deepseek-vl2"] = DeepSeekVL2Wrapper
-    except ImportError:
-        pass
-
-    # Optional vLLM backends — only load if vllm is installed
-    try:
-        from models.vllm_wrapper import Qwen2VLVLLMWrapper, LLaVAVLLMWrapper
-        registry["qwen2vl-vllm"] = Qwen2VLVLLMWrapper
-        registry["llava-vllm"] = LLaVAVLLMWrapper
-    except ImportError:
-        pass
-
-    if name not in registry:
-        raise ValueError(f"Unknown model: {name}. Available: {list(registry.keys())}")
-    return registry[name]()
+from models import get_wrapper as _get_wrapper
 
 
 def run_inference(

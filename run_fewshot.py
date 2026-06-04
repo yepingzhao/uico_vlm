@@ -39,19 +39,7 @@ FEWSHOT_PROMPT = (
 )
 
 
-def _get_wrapper(name: str):
-    from models.llava import LLaVAWrapper
-    from models.qwen2vl import Qwen2VLWrapper
-    from models.llava_next import LLaVANeXTWrapper
-
-    registry = {
-        "llava": LLaVAWrapper,
-        "qwen2vl": Qwen2VLWrapper,
-        "llava-next": LLaVANeXTWrapper,
-    }
-    if name not in registry:
-        raise ValueError(f"Unknown model: {name}. Available: {list(registry.keys())}")
-    return registry[name]()
+from models import get_wrapper as _get_wrapper
 
 
 def run_fewshot(
