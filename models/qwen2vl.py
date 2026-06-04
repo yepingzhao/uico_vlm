@@ -74,38 +74,14 @@ class Qwen2VLWrapper(VLMWrapper):
         example_captions: list,
         **kwargs,
     ) -> str:
-        """Generate caption with k-shot in-context examples.
+        from ._fewshot import build_fewshot_images_and_content
 
-        Uses lower resolution than single-image mode to fit k+1 images
-        in 24GB VRAM (Qwen2.5-VL's visual tokens scale with resolution).
-        """
-        from PIL import Image
-
-        # Use cached low-res processor for multi-image
         fewshot_processor = self._fewshot_processor
 
-        # Build multi-image messages
-        content_blocks = []
-        all_images = []
-
-        for i, (ex_img_path, ex_caption) in enumerate(
-            zip(example_images, example_captions)
-        ):
-            ex_img = Image.open(ex_img_path).convert("RGB")
-            all_images.append(ex_img)
-            content_blocks.append({"type": "image", "image": ex_img})
-            content_blocks.append({
-                "type": "text",
-                "text": f"Example {i + 1}: {ex_caption}",
-            })
-
-        test_img = Image.open(test_image_path).convert("RGB")
-        all_images.append(test_img)
-        content_blocks.append({"type": "image", "image": test_img})
-        content_blocks.append({
-            "type": "text",
-            "text": prompt_template,
-        })
+        all_images, content_blocks = build_fewshot_images_and_content(
+            test_image_path, prompt_template, example_images, example_captions,
+            embed_images=True,
+        )
 
         messages = [{"role": "user", "content": content_blocks}]
         text = fewshot_processor.apply_chat_template(

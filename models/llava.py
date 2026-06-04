@@ -60,44 +60,12 @@ class LLaVAWrapper(VLMWrapper):
         example_captions: list,
         **kwargs,
     ) -> str:
-        """Generate caption with k-shot in-context examples.
+        from ._fewshot import build_fewshot_images_and_content
 
-        Args:
-            test_image_path: Path to the test image.
-            prompt_template: Text template with {instruction} placeholder.
-            example_images: List of paths to example images.
-            example_captions: List of example captions (same length).
-            **kwargs: Passed to model.generate().
-
-        Returns:
-            Generated caption string.
-        """
-        from PIL import Image
-
-        # Build multi-image conversation
-        all_images = []
-        content_blocks = []
-
-        # Add example pairs: [image, text], [image, text], ...
-        for i, (ex_img_path, ex_caption) in enumerate(
-            zip(example_images, example_captions)
-        ):
-            ex_img = Image.open(ex_img_path).convert("RGB")
-            all_images.append(ex_img)
-            content_blocks.append({"type": "image"})
-            content_blocks.append({
-                "type": "text",
-                "text": f"Example {i + 1}: {ex_caption}",
-            })
-
-        # Add test image + instruction
-        test_img = Image.open(test_image_path).convert("RGB")
-        all_images.append(test_img)
-        content_blocks.append({"type": "image"})
-        content_blocks.append({
-            "type": "text",
-            "text": prompt_template,
-        })
+        all_images, content_blocks = build_fewshot_images_and_content(
+            test_image_path, prompt_template, example_images, example_captions,
+            embed_images=False,
+        )
 
         conversation = [{"role": "user", "content": content_blocks}]
         formatted = self._processor.apply_chat_template(
