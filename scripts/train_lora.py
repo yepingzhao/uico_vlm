@@ -165,11 +165,18 @@ def train():
             input_ids = batch["input_ids"].to(config.device)
             attention_mask = batch["attention_mask"].to(config.device)
             labels = batch["labels"].to(config.device)
+            image_grid_thw = batch.get("image_grid_thw")
+            if image_grid_thw is not None:
+                image_grid_thw = image_grid_thw.to(config.device)
 
-            outputs = model(
+            model_kwargs = dict(
                 pixel_values=pixel_values, input_ids=input_ids,
                 attention_mask=attention_mask, labels=labels,
             )
+            if image_grid_thw is not None:
+                model_kwargs["image_grid_thw"] = image_grid_thw
+
+            outputs = model(**model_kwargs)
             loss = outputs.loss / config.gradient_accumulation_steps
             loss.backward()
             total_loss += loss.item()

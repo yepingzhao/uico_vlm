@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 from config import DATA_BASE
-from data.dataset import _resolve_image_path
+from data.dataset import resolve_image_path as _resolve_image_path
 
 IMAGES_BASE_DIR = os.path.join(DATA_BASE, "images")
 
@@ -142,30 +142,37 @@ class UICOInstructionDataset(Dataset):
             "pixel_values": inputs["pixel_values"].squeeze(0),
             "input_ids": input_ids,
             "labels": labels,
+            "attention_mask": inputs.get("attention_mask", torch.ones_like(input_ids)).squeeze(0),
+            "image_grid_thw": inputs.get("image_grid_thw", torch.tensor([[1, 1, 1]])).squeeze(0),
         }
 
 
 def collate_fn(processor, batch):
     """Pad variable-length sequences and stack pixel values."""
     pixel_values = torch.stack([item["pixel_values"] for item in batch])
+    image_grid_thw = torch.stack([item["image_grid_thw"] for item in batch])
 
     max_len = max(item["input_ids"].size(0) for item in batch)
     pad_token_id = processor.tokenizer.pad_token_id
 
-    input_ids_list, labels_list = [], []
+    input_ids_list, labels_list, mask_list = [], [], []
     for item in batch:
         ids = item["input_ids"]
         labs = item["labels"]
+        am = item["attention_mask"]
         pad_len = max_len - ids.size(0)
         if pad_len > 0:
             ids = torch.cat([ids, torch.full((pad_len,), pad_token_id)])
             labs = torch.cat([labs, torch.full((pad_len,), -100)])
+            am = torch.cat([am, torch.zeros(pad_len, dtype=am.dtype)])
         input_ids_list.append(ids)
         labels_list.append(labs)
+        mask_list.append(am)
 
     return {
         "pixel_values": pixel_values,
+        "image_grid_thw": image_grid_thw,
         "input_ids": torch.stack(input_ids_list),
-        "attention_mask": torch.stack(input_ids_list).ne(pad_token_id).long(),
+        "attention_mask": torch.stack(mask_list),
         "labels": torch.stack(labels_list),
     }
