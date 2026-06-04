@@ -137,20 +137,21 @@ Few-shot examples are pre-sampled once from the training set (fixed seed, cached
 ### 5. QLoRA Fine-Tuning
 
 ```bash
-python -m vlm_eval.train.train_llava_lora
+python scripts/train_lora.py --model llava
 ```
 
-Fine-tunes LLaVA-1.5-7B with:
+Fine-tunes VLMs with:
 - 4-bit NF4 quantization (QLoRA)
 - LoRA rank=8 on q/k/v/o attention projections
 - Vision encoder frozen, multimodal projector quantized (not tuned)
 - Masked LM loss on caption tokens only
 - SwanLab logging
+- Supports LLaVA-1.5-7B and LLaVA-NeXT (via `--model` flag)
 
 ### 6. LoRA Inference
 
 ```bash
-python scripts/inference_lora.py
+python scripts/inference_lora.py --model llava
 ```
 
 ### 7. Table Generation
@@ -204,7 +205,7 @@ outputs/
 ├── all_metrics.json                        # aggregate zero-shot results
 ├── fewshot_all_metrics.json                # aggregate few-shot results
 ├── fewshot_cache/                          # cached few-shot example selections
-├── llava-lora/                             # QLoRA adapter weights
+├── {model}-lora/                            # QLoRA adapter weights
 └── tables/                                 # generated LaTeX tables
 ```
 
@@ -224,13 +225,13 @@ Edit `config.py` for:
 
 ## Architecture
 
-- `models/` — VLM wrappers implementing a common `generate()` interface, with optional `generate_fewshot()` for few-shot capable models
-- `data/` — COCO dataset loader with subsampling and image path resolution
+- `models/` — VLM wrappers with `models/lora.py` providing shared QLoRA utilities
+- `data/` — COCO dataset loader with `data/training_dataset.py` for instruction fine-tuning
 - `prompts/` — prompt templates (A/B/C/ZH)
 - `eval/` — reference-based metrics (BLEU, METEOR, ROUGE, CIDEr, SPICE) and reference-free metrics (CLIPScore, RefCLIPScore)
 - `fewshot/` — static-example few-shot sampler with disk caching
-- `train/` — QLoRA fine-tuning for LLaVA-1.5-7B
-- `config.py` — central configuration
+- `scripts/` — CLI entry points for inference, evaluation, and training
+- `config/` — central configuration package (settings + training config)
 
 ## License
 

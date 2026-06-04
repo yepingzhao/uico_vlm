@@ -84,9 +84,9 @@ Two evaluation modes:
 
 `scripts/run_fewshot.py` uses the same checkpoint/resume pattern as `scripts/run_inference.py` but calls `wrapper.generate_fewshot()` which interleaves example images+captions before the test image.
 
-### Training (`train/`)
+### Training (`scripts/train_lora.py`)
 
-QLoRA fine-tuning of LLaVA-1.5-7B (`train_llava_lora.py`):
+QLoRA fine-tuning with multi-model support (`scripts/train_lora.py`):
 - 4-bit NF4 quantization, LoRA rank=8 on q/k/v/o projections
 - Vision encoder frozen, multimodal projector quantized (4-bit) but not LoRA-tuned
 - Masked LM loss on caption tokens only (image tokens and user prompt masked with -100)
@@ -120,10 +120,11 @@ python scripts/eval_fewshot.py --model llava --k 1
 python scripts/eval_fewshot.py --all
 
 # Training
-python -m vlm_eval.train.train_llava_lora   # requires the vlm_eval symlink
+python scripts/train_lora.py --model llava                   # default LLaVA-1.5-7B
+python scripts/train_lora.py --model llava-next --epochs 3   # LLaVA-NeXT
 
 # LoRA inference
-python scripts/inference_lora.py
+python scripts/inference_lora.py --model llava
 
 # Table generation
 python make_table.py
@@ -140,7 +141,7 @@ outputs/
   all_metrics.json                           # aggregate zero-shot results
   fewshot_all_metrics.json                   # aggregate few-shot results
   fewshot_cache/                             # cached few-shot example selections
-  llava-lora/                                # QLoRA adapter weights
+  {model}-lora/                              # QLoRA adapter weights
   tables/                                    # generated LaTeX tables
 ```
 
