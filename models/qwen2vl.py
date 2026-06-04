@@ -18,21 +18,44 @@ class Qwen2VLWrapper(VLMWrapper):
         return "qwen2vl"
 
     def load(self, device: str = "cuda:0"):
+        import os as _os
+        from pathlib import Path as _Path
+
         self._device = device
         model_id = "Qwen/Qwen2.5-VL-7B-Instruct"
+        # Resolve local cache path — avoids HF Hub network calls
+        # (transformers cached_files() requires _commit_hash to use
+        # try_to_load_from_cache, which isn't available in offline mode)
+        cache_root = _os.path.expanduser("~/.cache/huggingface/hub")
+        ref_file = _os.path.join(
+            cache_root,
+            "models--Qwen--Qwen2.5-VL-7B-Instruct",
+            "refs",
+            "main",
+        )
+        if _os.path.isfile(ref_file):
+            commit = _Path(ref_file).read_text().strip()
+            snapshot = _os.path.join(
+                cache_root,
+                "models--Qwen--Qwen2.5-VL-7B-Instruct",
+                "snapshots",
+                commit,
+            )
+        else:
+            snapshot = model_id  # fallback
+
         self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            model_id, torch_dtype=torch.float16
+            snapshot, torch_dtype=torch.float16
         ).to(device)
         self._model.eval()
-        # min_pixels/max_pixels control resolution; set to reasonable defaults
         self._processor = AutoProcessor.from_pretrained(
-            model_id,
+            snapshot,
             min_pixels=256 * 28 * 28,
             max_pixels=1280 * 28 * 28,
         )
         # Low-res processor for few-shot multi-image (avoids OOM on 24GB)
         self._fewshot_processor = AutoProcessor.from_pretrained(
-            model_id,
+            snapshot,
             min_pixels=128 * 28 * 28,
             max_pixels=256 * 28 * 28,
         )
