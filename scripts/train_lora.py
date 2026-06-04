@@ -103,7 +103,17 @@ def train():
 
     # ── Load data ──
     processor_class = _import_class(config.processor_class_name)
-    processor = processor_class.from_pretrained(config.model_id)
+    processor_kwargs = {}
+    if args.model == "qwen2vl":
+        # Lower resolution for QLoRA training to fit 24GB VRAM
+        # (Qwen2.5-VL dynamic resolution can produce very large feature maps)
+        processor_kwargs = dict(
+            min_pixels=128 * 28 * 28,
+            max_pixels=256 * 28 * 28,
+        )
+    processor = processor_class.from_pretrained(
+        config.model_id, **processor_kwargs,
+    )
 
     train_ds = UICOInstructionDataset(
         ann_file=config.train_ann_file,
