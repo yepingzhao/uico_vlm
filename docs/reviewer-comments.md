@@ -1,0 +1,1 @@
+The paper has an interesting application domain, but in its current form the technical novelty appears limited, the experimental validation is not strong enough for a top IEEE vision/multimedia journal, and the absence of modern VLM baselines is a particularly serious weakness
