@@ -9,7 +9,7 @@ import os
 import random
 from typing import List, Tuple
 
-from ..config import DATA_BASE, RANDOM_SEED
+from config import DATA_BASE, RANDOM_SEED
 
 
 def load_training_captions() -> List[Tuple[int, str, str]]:

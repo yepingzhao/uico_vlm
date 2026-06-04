@@ -84,20 +84,20 @@ Uses `hf-mirror.com` by default (set `HF_ENDPOINT` to override).
 
 ```bash
 # Phase 1 (dev): 1000 images, 2 lightweight models
-python run_inference.py --models blip2 llava --subsample 1000 --prompt A
+python scripts/run_inference.py --models blip2 llava --subsample 1000 --prompt A
 
 # Phase 2 (full): all images, all models
-python run_inference.py --models blip2 instructblip llava internvl2 qwen2vl --prompt A
+python scripts/run_inference.py --models blip2 instructblip llava internvl2 qwen2vl --prompt A
 
 # Sensitivity analysis: prompt variants B/C on LLaVA + Qwen2.5-VL
-python run_inference.py --models llava qwen2vl --prompt B
-python run_inference.py --models llava qwen2vl --prompt C
+python scripts/run_inference.py --models llava qwen2vl --prompt B
+python scripts/run_inference.py --models llava qwen2vl --prompt C
 
 # Chinese prompt (Qwen2.5-VL only)
-python run_inference.py --models qwen2vl --prompt ZH
+python scripts/run_inference.py --models qwen2vl --prompt ZH
 
 # vLLM backend: faster inference
-python run_inference.py --models llava-vllm qwen2vl-vllm --prompt A
+python scripts/run_inference.py --models llava-vllm qwen2vl-vllm --prompt A
 ```
 
 Supports checkpoint/resume — interrupted runs pick up where they left off.
@@ -106,30 +106,30 @@ Supports checkpoint/resume — interrupted runs pick up where they left off.
 
 ```bash
 # Evaluate a single model/prompt pair
-python run_eval.py --model blip2 --prompt A
+python scripts/run_eval.py --model blip2 --prompt A
 
 # Reference-free metrics only (skip BLEU/METEOR/ROUGE/CIDEr/SPICE)
-python run_eval.py --model blip2 --prompt A --ref_free_only
+python scripts/run_eval.py --model blip2 --prompt A --ref_free_only
 
 # Evaluate all models, all prompts
-python run_eval.py --all
+python scripts/run_eval.py --all
 ```
 
 ### 4. Few-Shot Inference
 
 ```bash
 # Quick test: 3 images, k=1
-python run_fewshot.py --models llava --k 1 --subsample 3
+python scripts/run_fewshot.py --models llava --k 1 --subsample 3
 
 # Dev run: 500 images, k=1,3,5
-python run_fewshot.py --models llava qwen2vl --k 1 3 5 --subsample 500
+python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5 --subsample 500
 
 # Full run
-python run_fewshot.py --models llava qwen2vl --k 1 3 5
+python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5
 
 # Evaluate few-shot results
-python eval_fewshot.py --model llava --k 1
-python eval_fewshot.py --all
+python scripts/eval_fewshot.py --model llava --k 1
+python scripts/eval_fewshot.py --all
 ```
 
 Few-shot examples are pre-sampled once from the training set (fixed seed, cached to disk) and reused across all test images.
@@ -150,7 +150,7 @@ Fine-tunes LLaVA-1.5-7B with:
 ### 6. LoRA Inference
 
 ```bash
-python inference_lora.py
+python scripts/inference_lora.py
 ```
 
 ### 7. Table Generation
