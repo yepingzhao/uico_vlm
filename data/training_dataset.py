@@ -14,6 +14,34 @@ from data.dataset import _resolve_image_path
 IMAGES_BASE_DIR = os.path.join(DATA_BASE, "images")
 
 
+def _detect_image_token_ids(processor) -> set:
+    """Auto-detect image-related token IDs from a VLM processor.
+
+    Different VLMs use different token IDs for image placeholders
+    (LLaVA: 32000 for <image>, Qwen2.5-VL: 151654/151655 for
+    <|vision_pad|>/<|image_pad|>). We probe the tokenizer for common
+    image token names rather than hardcoding per-model IDs.
+    """
+    ids = set()
+    tok = processor.tokenizer
+    candidates = [
+        "<image>",           # LLaVA / LLaVA-NeXT
+        "<|image_pad|>",     # Qwen2.5-VL
+        "<|vision_pad|>",    # Qwen2.5-VL
+        "<|vision_start|>",  # Qwen2.5-VL
+        "<|vision_end|>",    # Qwen2.5-VL
+        "<image_soft_token>",  # InternVL2
+    ]
+    for token_name in candidates:
+        tid = tok.convert_tokens_to_ids(token_name)
+        if isinstance(tid, int) and tid != tok.unk_token_id:
+            ids.add(tid)
+    if not ids:
+        # Fallback for unknown models
+        ids = {32000}
+    return ids
+
+
 class UICOInstructionDataset(Dataset):
     """UICO training set in instruction-following format for VLMs.
 
@@ -34,6 +62,7 @@ class UICOInstructionDataset(Dataset):
     ):
         self.processor = processor
         self.user_prompt = user_prompt
+        self._image_token_ids = _detect_image_token_ids(processor)
         self.samples: List[tuple] = []
 
         with open(ann_file) as f:
@@ -105,7 +134,9 @@ class UICOInstructionDataset(Dataset):
 
         labels = input_ids.clone()
         labels[:len(user_ids)] = -100
-        labels[input_ids == 32000] = -100  # image placeholder tokens
+        # Mask image placeholder tokens (model-specific IDs)
+        for tid in self._image_token_ids:
+            labels[input_ids == tid] = -100
 
         return {
             "pixel_values": inputs["pixel_values"].squeeze(0),
