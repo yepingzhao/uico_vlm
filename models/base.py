@@ -40,7 +40,7 @@ class VLMWrapper(ABC):
         if not os.path.isfile(image_path):
             raise FileNotFoundError(f"Image not found: {image_path}")
 
-    def _strip_and_decode(self, output_ids, inputs, processor=None):
+    def _strip_and_decode(self, output_ids, inputs, processor=None) -> str:
         """Strip input tokens from output and decode to string.
 
         Removes the input prompt tokens from the generated output, then
