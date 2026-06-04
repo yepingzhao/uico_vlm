@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
-"""Run inference with the QLoRA fine-tuned LLaVA model on the UICO test set."""
+"""Run inference with a QLoRA fine-tuned VLM on the UICO test set.
 
+Usage:
+    python scripts/inference_lora.py --model llava
+    python scripts/inference_lora.py --model llava-next
+"""
+
+import argparse
 import json
 import os
 import sys
@@ -13,58 +19,51 @@ from PIL import Image
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import OUTPUT_DIR, DATA_BASE, RANDOM_SEED
+from config import OUTPUT_DIR, RANDOM_SEED
+from config.training import get_lora_config
 from data.dataset import load_test_dataset
-from transformers import (
-    AutoProcessor,
-    LlavaForConditionalGeneration,
-    BitsAndBytesConfig,
-)
-from peft import PeftModel
+from models.lora import load_qlora_for_inference
+from models.utils import load_checkpoint
 
 
-MODEL_ID = "llava-hf/llava-1.5-7b-hf"
-LORA_DIR = os.path.join(OUTPUT_DIR, "llava-lora")
-PRED_FILE = os.path.join(OUTPUT_DIR, "llava-lora", "predictions_prompt_a.jsonl")
-DEVICE = "cuda:0"
+def _import_class(class_name: str):
+    """Import a HuggingFace class by name."""
+    import transformers
+    if hasattr(transformers, class_name):
+        return getattr(transformers, class_name)
+    raise ValueError(f"Unknown class: {class_name}")
 
 
 def main():
-    os.makedirs(LORA_DIR, exist_ok=True)
+    parser = argparse.ArgumentParser(description="LoRA VLM Inference")
+    parser.add_argument("--model", type=str, default="llava",
+                        help="Model short name.")
+    parser.add_argument("--device", type=str, default="cuda:0")
+    args = parser.parse_args()
 
-    # Load base model with 4-bit (same as training)
+    model_cfg = get_lora_config(args.model)
+    model_id = model_cfg["model_id"]
+    lora_dir = os.path.join(OUTPUT_DIR, f"{args.model}-lora")
+    pred_file = os.path.join(lora_dir, "predictions_prompt_a.jsonl")
+
+    print(f"[Model] {args.model} -> {model_id}")
+    print(f"[LoRA] {lora_dir}")
+
+    # ── Load model ──
     print("[Load] Loading QLoRA model...")
     t0 = time.time()
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_use_double_quant=True,
+    model_class = _import_class(model_cfg["model_class_name"])
+    model, processor = load_qlora_for_inference(
+        model_class, model_id, lora_dir, args.device,
     )
-    base_model = LlavaForConditionalGeneration.from_pretrained(
-        MODEL_ID,
-        quantization_config=bnb_config,
-        device_map=DEVICE,
-        torch_dtype=torch.float16,
-    )
-    model = PeftModel.from_pretrained(base_model, LORA_DIR)
-    model.eval()
-    processor = AutoProcessor.from_pretrained(LORA_DIR)
     print(f"[Load] Done in {time.time() - t0:.1f}s")
 
-    # Load test data
+    # ── Load test data ──
     ds = load_test_dataset(subsample=0, seed=RANDOM_SEED)
     print(f"[Data] {len(ds)} test images")
 
-    # Resume
-    processed = set()
-    if os.path.exists(PRED_FILE):
-        with open(PRED_FILE) as f:
-            for line in f:
-                try:
-                    processed.add(json.loads(line)["image_id"])
-                except (json.JSONDecodeError, KeyError):
-                    continue
+    # ── Resume ──
+    processed = load_checkpoint(pred_file)
     remaining = [i for i in ds.image_ids if i not in processed]
     print(f"[Resume] {len(processed)} done, {len(remaining)} remaining")
 
@@ -72,15 +71,14 @@ def main():
         print("[Skip] All done.")
         return
 
-    # Use the training-format prompt for inference
+    os.makedirs(lora_dir, exist_ok=True)
     user_prompt = "Describe this urban scene in one sentence."
 
-    with open(PRED_FILE, "a") as f_out:
+    with open(pred_file, "a") as f_out:
         for i, img_id in enumerate(remaining):
             img_path = ds.get_image_path(img_id)
             image = Image.open(img_path).convert("RGB")
 
-            # Same format as training: USER: <image>\nprompt ASSISTANT:
             conv = [{
                 "role": "user",
                 "content": [
@@ -88,19 +86,18 @@ def main():
                     {"type": "text", "text": user_prompt},
                 ],
             }]
-            prompt = processor.apply_chat_template(conv, add_generation_prompt=True)
+            prompt = processor.apply_chat_template(
+                conv, add_generation_prompt=True)
             inputs = processor(
                 images=image, text=prompt, return_tensors="pt"
-            ).to(DEVICE, torch.float16)
+            ).to(args.device, torch.float16)
 
             with torch.no_grad():
                 output_ids = model.generate(
-                    **inputs, max_new_tokens=128, do_sample=False,
-                )
+                    **inputs, max_new_tokens=128, do_sample=False)
             generated = output_ids[:, inputs["input_ids"].shape[1]:]
             caption = processor.decode(
-                generated[0], skip_special_tokens=True
-            ).strip()
+                generated[0], skip_special_tokens=True).strip()
 
             record = {
                 "image_id": img_id,
@@ -114,7 +111,7 @@ def main():
                 f_out.flush()
                 print(f"  [{i+1}/{len(remaining)}] {caption[:80]}...", flush=True)
 
-    print(f"[Done] → {PRED_FILE}")
+    print(f"[Done] -> {pred_file}")
 
 
 if __name__ == "__main__":
