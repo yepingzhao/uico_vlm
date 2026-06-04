@@ -1,0 +1,46 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project: inference outputs & metrics
+outputs/
+
+# Project: training logs (SwanLab)
+swanlog/
+wandb/
+
+# Project: local data
+data/
+
+# Project: model weights (keep only .py source files)
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+
+# Claude Code
+.agents/
+.claude/
+skills-lock.json

@@ -1,0 +1,15 @@
+name: uico_vlm
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - torch==2.5.1
+      - transformers>=4.46
+      - accelerate
+      - pillow
+      - pycocotools
+      - vllm
+      - git+https://github.com/ruotianluo/coco-caption.git
