@@ -28,10 +28,17 @@ PROMPT_ZH = (
     "请描述这张图片中存在的城市不文明现象或违反城市管理规范的行为。"
 )
 
+# Few-shot prompt: instruction placed after example images
+PROMPT_FEWSHOT = (
+    "Now describe any urban incivility or civic norm violations "
+    "visible in the image above in one or two sentences."
+)
+
 # Mapping for config
 PROMPT_MAP = {
     "A": PROMPT_A,
     "B": PROMPT_B,
     "C": PROMPT_C,
     "ZH": PROMPT_ZH,
+    "FS": PROMPT_FEWSHOT,
 }
