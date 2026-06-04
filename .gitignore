@@ -30,8 +30,9 @@ outputs/
 swanlog/
 wandb/
 
-# Project: local data
-data/
+# Project: local data (images/annotations if placed under repo)
+data/images/
+data/annotations/
 
 # Project: model weights (keep only .py source files)
 *.pt
