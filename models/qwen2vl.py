@@ -66,38 +66,19 @@ class Qwen2VLWrapper(VLMWrapper):
             )
         return self._strip_and_decode(output_ids, inputs)
 
-    def generate_fewshot(
-        self,
-        test_image_path: str,
-        prompt_template: str,
-        example_images: list,
-        example_captions: list,
-        **kwargs,
-    ) -> str:
-        from ._fewshot import build_fewshot_images_and_content
+    _fewshot_embed_images = True
 
-        fewshot_processor = self._fewshot_processor
+    def _get_fewshot_processor(self):
+        """Return low-res processor for few-shot to avoid OOM on 24GB GPUs."""
+        return self._fewshot_processor
 
-        all_images, content_blocks = build_fewshot_images_and_content(
-            test_image_path, prompt_template, example_images, example_captions,
-            embed_images=True,
-        )
-
+    def _build_fewshot_inputs(self, content_blocks: list, all_images: list):
+        """Qwen-style: embed PIL images in content, list-based processor call."""
+        processor = self._get_fewshot_processor()
         messages = [{"role": "user", "content": content_blocks}]
-        text = fewshot_processor.apply_chat_template(
+        text = processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        inputs = fewshot_processor(
-            text=[text],
-            images=all_images,
-            return_tensors="pt",
-            padding=True,
+        return processor(
+            text=[text], images=all_images, return_tensors="pt", padding=True
         ).to(self._device)
-
-        with torch.no_grad():
-            output_ids = self._model.generate(
-                **inputs,
-                max_new_tokens=kwargs.get("max_new_tokens", 128),
-                do_sample=False,
-            )
-        return self._strip_and_decode(output_ids, inputs, processor=fewshot_processor)

@@ -52,35 +52,12 @@ class LLaVAWrapper(VLMWrapper):
         # Strip input tokens, keep only generated response
         return self._strip_and_decode(output_ids, inputs)
 
-    def generate_fewshot(
-        self,
-        test_image_path: str,
-        prompt_template: str,
-        example_images: list,
-        example_captions: list,
-        **kwargs,
-    ) -> str:
-        from ._fewshot import build_fewshot_images_and_content
-
-        all_images, content_blocks = build_fewshot_images_and_content(
-            test_image_path, prompt_template, example_images, example_captions,
-            embed_images=False,
-        )
-
+    def _build_fewshot_inputs(self, content_blocks: list, all_images: list):
+        """LLaVA-style: images passed separately, not embedded in content."""
         conversation = [{"role": "user", "content": content_blocks}]
         formatted = self._processor.apply_chat_template(
             conversation, add_generation_prompt=True
         )
-        inputs = self._processor(
-            images=all_images,
-            text=formatted,
-            return_tensors="pt",
+        return self._processor(
+            images=all_images, text=formatted, return_tensors="pt"
         ).to(self._device, torch.float16)
-
-        with torch.no_grad():
-            output_ids = self._model.generate(
-                **inputs,
-                max_new_tokens=kwargs.get("max_new_tokens", 128),
-                do_sample=False,
-            )
-        return self._strip_and_decode(output_ids, inputs)
