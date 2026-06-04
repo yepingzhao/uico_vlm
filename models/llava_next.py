@@ -51,10 +51,7 @@ class LLaVANeXTWrapper(VLMWrapper):
                 max_new_tokens=kwargs.get("max_new_tokens", 128),
                 do_sample=False,
             )
-        generated_ids = output_ids[:, inputs["input_ids"].shape[1]:]
-        return self._processor.decode(
-            generated_ids[0], skip_special_tokens=True
-        ).strip()
+        return self._strip_and_decode(output_ids, inputs)
 
     def generate_fewshot(
         self,
@@ -102,7 +99,4 @@ class LLaVANeXTWrapper(VLMWrapper):
                 max_new_tokens=kwargs.get("max_new_tokens", 128),
                 do_sample=False,
             )
-        generated_ids = output_ids[:, inputs["input_ids"].shape[1]:]
-        return self._processor.decode(
-            generated_ids[0], skip_special_tokens=True
-        ).strip()
+        return self._strip_and_decode(output_ids, inputs)

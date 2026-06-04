@@ -53,7 +53,4 @@ class Phi35VisionWrapper(VLMWrapper):
                 do_sample=False,
                 temperature=None,
             )
-        generated_ids = output_ids[:, inputs["input_ids"].shape[1]:]
-        return self._processor.decode(
-            generated_ids[0], skip_special_tokens=True
-        ).strip()
+        return self._strip_and_decode(output_ids, inputs)
