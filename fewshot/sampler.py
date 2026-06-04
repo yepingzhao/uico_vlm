@@ -9,8 +9,7 @@ import os
 import random
 from typing import List, Tuple
 
-from config import DATA_BASE, IMAGES_BASE_DIR, RANDOM_SEED
-from data.dataset import resolve_image_path
+from config import DATA_BASE, RANDOM_SEED
 
 
 def load_training_captions() -> List[Tuple[int, str, str]]:
@@ -37,6 +36,21 @@ def load_training_captions() -> List[Tuple[int, str, str]]:
         examples.append((image_id, file_name, caption))
 
     return examples
+
+
+def resolve_image_path(file_name: str) -> str:
+    """Map COCO file_name to actual filesystem path."""
+    # file_name format: "CCMC_train_000000026952.jpg" etc.
+    prefix_map = {
+        "CCMC_train": os.path.join(DATA_BASE, "images", "ccmc_train"),
+        "CCMC_val": os.path.join(DATA_BASE, "images", "ccmc_val"),
+        "CCMC_test": os.path.join(DATA_BASE, "images", "ccmc_test"),
+    }
+    for prefix, directory in prefix_map.items():
+        if file_name.startswith(prefix):
+            return os.path.join(directory, file_name)
+    # Fallback
+    return os.path.join(DATA_BASE, "images", file_name)
 
 
 def sample_examples(
@@ -80,7 +94,7 @@ def sample_examples(
         if len(selected) >= k:
             break
         fname, caption = rng.choice(by_image[img_id])
-        img_path = resolve_image_path(IMAGES_BASE_DIR, fname)
+        img_path = resolve_image_path(fname)
         if os.path.exists(img_path):
             selected.append((img_path, caption))
 
