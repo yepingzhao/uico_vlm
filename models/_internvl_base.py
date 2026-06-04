@@ -10,7 +10,6 @@ import torch
 from transformers import AutoModel, CLIPImageProcessor
 
 from .base import VLMWrapper
-from .utils import find_snapshot_dir
 
 
 class InternVLBase(VLMWrapper):

@@ -4,7 +4,6 @@ Requires vision-lora adapter for visual input processing.
 """
 
 import torch
-from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor
 
 from .base import VLMWrapper
@@ -44,7 +43,6 @@ class Phi4MultimodalWrapper(VLMWrapper):
 
     def generate(self, image_path: str, prompt: str, **kwargs) -> str:
         self._validate_image(image_path)
-        image = Image.open(image_path).convert("RGB")
 
         messages = [
             {"role": "user", "content": f"<|image_1|>\n{prompt}"},

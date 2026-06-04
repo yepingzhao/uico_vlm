@@ -6,7 +6,6 @@ Requires the DeepSeek-VL2 package:
 """
 
 import torch
-from PIL import Image
 
 from .base import VLMWrapper
 
@@ -34,8 +33,6 @@ class DeepSeekVL2Wrapper(VLMWrapper):
     def generate(self, image_path: str, prompt: str, **kwargs) -> str:
         self._validate_image(image_path)
         from deepseek_vl2.utils.io import load_pil_images
-
-        image = Image.open(image_path).convert("RGB")
 
         conversation = [
             {

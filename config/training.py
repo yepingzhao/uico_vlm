@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Dict
 
-from config import DATA_BASE, OUTPUT_DIR
+from config import DATA_BASE
 
 
 @dataclass
