@@ -37,25 +37,7 @@ MODEL_REGISTRY = [
 # Phase 1 development models (lightweight, fast verification)
 DEV_MODELS = ["blip2", "llava"]
 
-# --- Prompt variants ---
-# Primary prompt for all models
-PROMPTS = {
-    "A": "Describe any urban incivility or civic norm violations visible in this image in one or two sentences.",
-    "B": (
-        "Analyze this urban scene and describe:\n"
-        "(1) what type of civic norm violation is present,\n"
-        "(2) where it is located,\n"
-        "(3) why it constitutes an incivility."
-    ),
-    "C": (
-        "You are an urban management inspector. Describe the urban incivility in this image, "
-        "focusing on the specific violation, its spatial context, and its impact on public order."
-    ),
-}
-
-# Chinese prompt variant for Qwen2.5-VL
-PROMPT_ZH = "请描述这张图片中存在的城市不文明现象或违反城市管理规范的行为。"
-
+# Prompt templates are defined in prompts/templates.py (single source of truth).
 # Sensitivity analysis: only run B/C on these models
 SENSITIVITY_MODELS = ["llava", "qwen2vl"]
 

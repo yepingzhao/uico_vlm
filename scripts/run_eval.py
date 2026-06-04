@@ -111,20 +111,19 @@ if __name__ == "__main__":
         from config import MODEL_REGISTRY
         combos = []
         for name, _, _ in MODEL_REGISTRY:
-            combos.append((name, "A"))  # Primary: Prompt A for all
-        # Sensitivity: B/C for LLaVA + Qwen2.5-VL
+            combos.append((name, "A", False))  # Primary: Prompt A, ref-based+ref-free
+        # Sensitivity: B/C for LLaVA + Qwen2.5-VL (ref-free only — see
+        # docs/research-notes/2026-06-04-prompt-gt-alignment-analysis.md §5a)
         for name in ["llava", "qwen2vl"]:
             for pk in ["B", "C"]:
-                combos.append((name, pk))
-        # Chinese prompt: Qwen only
-        combos.append(("qwen2vl", "ZH"))
+                combos.append((name, pk, True))
     else:
-        combos = [(args.model, args.prompt)]
+        combos = [(args.model, args.prompt, args.ref_free_only)]
 
     all_metrics = {}
-    for model_name, prompt_key in combos:
+    for model_name, prompt_key, skip_ref_based in combos:
         m = compute_all_metrics(
-            model_name, prompt_key, args.device, args.ref_free_only
+            model_name, prompt_key, args.device, skip_ref_based
         )
         if m:
             all_metrics[f"{model_name}/{prompt_key}"] = m

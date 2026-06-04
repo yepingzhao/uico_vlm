@@ -11,7 +11,6 @@ Usage:
     # Sensitivity analysis: B/C prompts on LLaVA + Qwen2.5-VL
     python scripts/run_inference.py --models llava qwen2vl --prompt B
     python scripts/run_inference.py --models llava qwen2vl --prompt C
-    python scripts/run_inference.py --models qwen2vl --prompt ZH
 
     # vLLM backend: faster inference for LLaVA + Qwen2.5-VL
     python scripts/run_inference.py --models llava-vllm qwen2vl-vllm --prompt A
@@ -50,7 +49,7 @@ def run_inference(
 
     Args:
         model_names: List of short model names (e.g. ["blip2", "llava"]).
-        prompt_key: Which prompt to use ("A", "B", "C", "ZH").
+        prompt_key: Which prompt to use ("A", "B", "C").
         subsample: Number of images to use (0 = full test set).
         device: CUDA device string.
     """
@@ -133,8 +132,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--prompt", type=str, default="A",
-        choices=["A", "B", "C", "ZH"],
-        help="Prompt template key."
+        choices=["A", "B", "C"],
+        help="Prompt template key (A: primary, B/C: sensitivity)."
     )
     parser.add_argument(
         "--subsample", type=int, default=0,
