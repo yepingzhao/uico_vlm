@@ -12,4 +12,4 @@ dependencies:
       - pillow
       - pycocotools
       - vllm
-      - git+https://github.com/ruotianluo/coco-caption.git
+      - pycocoevalcap
