@@ -67,10 +67,8 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "model_id": "llava-hf/llava-v1.6-mistral-7b-hf",
         "model_class_name": "LlavaNextForConditionalGeneration",
         "processor_class_name": "LlavaNextProcessor",
-        "target_modules": (
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
-        ),
+        # 4 attention-only modules: match Qwen2VL conservative config
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
     },
     "qwen2vl": {
         "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",

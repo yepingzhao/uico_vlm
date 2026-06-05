@@ -27,10 +27,13 @@ from transformers import get_cosine_schedule_with_warmup
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import OUTPUT_DIR
+from PIL import Image
+
+from config import OUTPUT_DIR, VAL_IMAGES_DIR
 from config.training import TrainingConfig, get_lora_config
 from data.training_dataset import UICOInstructionDataset, collate_fn
 from models.lora import make_lora_config, load_qlora_model
+from prompts.templates import PROMPT_A
 
 
 def _import_class(class_name: str):
@@ -59,6 +62,10 @@ def train():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no_swanlab", action="store_true",
                         help="Disable SwanLab logging.")
+    parser.add_argument("--val_steps", type=int, default=500,
+                        help="Run validation every N global steps (0 = epoch-only).")
+    parser.add_argument("--val_samples", type=int, default=10,
+                        help="Number of validation images to use for mode collapse detection.")
     args = parser.parse_args()
 
     # ── Resolve model config ──
@@ -82,6 +89,8 @@ def train():
     config.logging_steps = args.logging_steps
     config.device = args.device
     config.seed = args.seed
+    config.val_steps = args.val_steps
+    config.val_samples = args.val_samples
 
     torch.manual_seed(config.seed)
     os.makedirs(config.output_dir, exist_ok=True)
@@ -181,11 +190,141 @@ def train():
             },
         )
 
+    # ── Validation images (fixed subset, zero overlap with test) ──
+    def _load_val_images(val_dir: str, n_samples: int) -> list:
+        """Pick n_samples deterministically from the val image directory."""
+        import os as _os
+        all_files = sorted(
+            f for f in _os.listdir(val_dir)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        )
+        if len(all_files) < n_samples:
+            n_samples = len(all_files)
+        step = max(1, len(all_files) // n_samples)
+        return [_os.path.join(val_dir, all_files[i * step])
+                for i in range(n_samples)]
+
+    def _compute_collapse_metrics(captions: list) -> dict:
+        """Detect mode collapse signals from a list of captions."""
+        words_per_caption = [c.lower().split() for c in captions]
+
+        # 1. Average length
+        lengths = [len(w) for w in words_per_caption]
+        avg_len = sum(lengths) / max(1, len(lengths))
+
+        # 2. Repetition ratio: unique/total per caption, then average
+        rep_ratios = []
+        for toks in words_per_caption:
+            if len(toks) == 0:
+                rep_ratios.append(1.0)
+            else:
+                rep_ratios.append(len(set(toks)) / len(toks))
+        avg_rep = sum(rep_ratios) / max(1, len(rep_ratios))
+
+        # 3. Duplicate rate
+        n = len(captions)
+        if n > 1:
+            from collections import Counter
+            counts = Counter(captions)
+            dup_rate = sum(1 for c, cnt in counts.items() if cnt > 1) / n
+        else:
+            dup_rate = 0.0
+
+        # 4. Self-BLEU: mean pairwise BLEU-1 between all caption pairs
+        if n > 1:
+            bleu_scores = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    ref_words = set(words_per_caption[j])
+                    hyp_words = words_per_caption[i]
+                    if len(hyp_words) == 0:
+                        bleu_scores.append(0.0)
+                    else:
+                        matches = sum(1 for w in hyp_words if w in ref_words)
+                        bleu_scores.append(matches / len(hyp_words))
+            self_bleu = sum(bleu_scores) / len(bleu_scores)
+        else:
+            self_bleu = 0.0
+
+        return dict(
+            avg_len=round(avg_len, 1),
+            rep_ratio=round(avg_rep, 4),
+            dup_rate=round(dup_rate, 4),
+            self_bleu=round(self_bleu, 4),
+        )
+
+    def run_validation(step, epoch):
+        """Run inference on val images, compute collapse metrics, log results."""
+        print(f"\n[Val] Running validation (step={step}, epoch={epoch})...",
+              flush=True)
+        model.eval()
+        captions = []
+        t0 = time.time()
+
+        for img_path in val_images:
+            image = Image.open(img_path).convert("RGB")
+            conv = [{
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": PROMPT_A},
+                ],
+            }]
+            text_prompt = processor.apply_chat_template(
+                conv, add_generation_prompt=True)
+            inputs = processor(
+                images=image, text=text_prompt, return_tensors="pt"
+            ).to(config.device, torch.bfloat16)
+
+            with torch.no_grad():
+                output_ids = model.generate(
+                    **inputs, max_new_tokens=128, do_sample=False)
+            generated = output_ids[:, inputs["input_ids"].shape[1]:]
+            caption = processor.decode(
+                generated[0], skip_special_tokens=True).strip()
+            captions.append(caption)
+
+        model.train()
+        elapsed = time.time() - t0
+
+        metrics = _compute_collapse_metrics(captions)
+        _log({"event": "val", "step": step, "epoch": epoch, **metrics,
+              "captions": captions, "elapsed_s": round(elapsed, 1)})
+
+        if not args.no_swanlab:
+            import swanlab
+            swanlab.log(
+                {f"val/{k}": v for k, v in metrics.items()}, step=step)
+
+        # Warnings for red-flag metrics
+        if metrics["avg_len"] > 50:
+            print(f"  ⚠ WARNING: avg_len={metrics['avg_len']} (>50), "
+                  f"possible mode collapse!", flush=True)
+        if metrics["rep_ratio"] < 0.5:
+            print(f"  ⚠ WARNING: rep_ratio={metrics['rep_ratio']} (<0.5), "
+                  f"high repetition!", flush=True)
+        if metrics["dup_rate"] > 0.3:
+            print(f"  ⚠ WARNING: dup_rate={metrics['dup_rate']} (>0.3), "
+                  f"low diversity!", flush=True)
+        if metrics["self_bleu"] > 0.6:
+            print(f"  ⚠ WARNING: self_bleu={metrics['self_bleu']} (>0.6), "
+                  f"captions too similar!", flush=True)
+
+        print(f"  avg_len={metrics['avg_len']} rep_ratio={metrics['rep_ratio']} "
+              f"dup_rate={metrics['dup_rate']} self_bleu={metrics['self_bleu']} "
+              f"({elapsed:.1f}s)", flush=True)
+
+    val_images = _load_val_images(VAL_IMAGES_DIR, config.val_samples)
+    print(f"[Val] {len(val_images)} images from {VAL_IMAGES_DIR}")
+
     # ── Training loop ──
     model.train()
     global_step = 0
     total_loss = 0.0
     print(f"\n[Train] {total_steps} steps, {warmup_steps} warmup")
+
+    if config.val_steps > 0:
+        run_validation(step=0, epoch=0)
 
     for epoch in range(config.num_epochs):
         print(f"\n{'='*50}\n[Epoch] {epoch+1}/{config.num_epochs}\n{'='*50}")
@@ -203,6 +342,9 @@ def train():
             mm_token_type_ids = batch.get("mm_token_type_ids")
             if mm_token_type_ids is not None:
                 mm_token_type_ids = mm_token_type_ids.to(config.device)
+            image_sizes = batch.get("image_sizes")
+            if image_sizes is not None:
+                image_sizes = image_sizes.to(config.device)
 
             model_kwargs = dict(
                 pixel_values=pixel_values, input_ids=input_ids,
@@ -212,6 +354,8 @@ def train():
                 model_kwargs["image_grid_thw"] = image_grid_thw
             if mm_token_type_ids is not None:
                 model_kwargs["mm_token_type_ids"] = mm_token_type_ids
+            if image_sizes is not None:
+                model_kwargs["image_sizes"] = image_sizes
 
             outputs = model(**model_kwargs)
             loss = outputs.loss / config.gradient_accumulation_steps
@@ -253,6 +397,9 @@ def train():
                     _log({"event": "checkpoint", "step": global_step,
                           "epoch": epoch + 1})
                     print(f"  [Save] {ckpt_dir}")
+
+                if config.val_steps > 0 and global_step % config.val_steps == 0:
+                    run_validation(step=global_step, epoch=epoch + 1)
 
         avg_ep = epoch_loss / len(train_loader) * config.gradient_accumulation_steps
         _log({"event": "epoch_end", "epoch": epoch + 1,

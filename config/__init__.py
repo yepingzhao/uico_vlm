@@ -11,6 +11,7 @@ DATA_BASE = "/home/uesr/zhao/media_data/ccmc"
 ANNOTATIONS_DIR = os.path.join(DATA_BASE, "annotations")
 TEST_ANN_FILE = os.path.join(ANNOTATIONS_DIR, "captions_test.json")
 IMAGES_BASE_DIR = os.path.join(DATA_BASE, "images")
+VAL_IMAGES_DIR = os.path.join(IMAGES_BASE_DIR, "ccmc_val")
 
 # --- Model registry ---
 # Each entry: (short_name, hf_model_id, wrapper_class_name)

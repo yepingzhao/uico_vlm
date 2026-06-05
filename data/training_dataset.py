@@ -149,6 +149,7 @@ class UICOInstructionDataset(Dataset):
             "labels": labels,
             "attention_mask": inputs.get("attention_mask", torch.ones_like(input_ids)).squeeze(0),
             "image_grid_thw": inputs.get("image_grid_thw", torch.tensor([[1, 1, 1]])).squeeze(0),
+            "image_sizes": inputs.get("image_sizes"),
             "mm_token_type_ids": (
                 inputs["mm_token_type_ids"].squeeze(0)
                 if inputs.get("mm_token_type_ids") is not None
@@ -161,6 +162,15 @@ def collate_fn(processor, batch):
     """Pad variable-length sequences and stack pixel values."""
     pixel_values = torch.stack([item["pixel_values"] for item in batch])
     image_grid_thw = torch.stack([item["image_grid_thw"] for item in batch])
+
+    # LLaVA-NeXT dynamic high resolution: stack image_sizes if present
+    has_image_sizes = all(
+        item.get("image_sizes") is not None for item in batch
+    )
+    image_sizes = (
+        torch.stack([item["image_sizes"].squeeze(0) for item in batch])
+        if has_image_sizes else None
+    )
 
     max_len = max(item["input_ids"].size(0) for item in batch)
     pad_token_id = processor.tokenizer.pad_token_id
@@ -197,6 +207,8 @@ def collate_fn(processor, batch):
         "attention_mask": torch.stack(mask_list),
         "labels": torch.stack(labels_list),
     }
+    if has_image_sizes:
+        result["image_sizes"] = image_sizes
     if has_mm_tokens:
         result["mm_token_type_ids"] = torch.stack(mm_token_list)
     return result
