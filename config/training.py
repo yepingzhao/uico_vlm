@@ -76,10 +76,9 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
         "model_class_name": "Qwen2_5_VLForConditionalGeneration",
         "processor_class_name": "AutoProcessor",
-        "target_modules": (
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
-        ),
+        # Qwen2.5-VL diverges (NaN) with 7 target modules under QLoRA 4-bit.
+        # Stick to attention-only projections; LLaVA is stable with 7.
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
     },
 }
 
