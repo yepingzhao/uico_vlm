@@ -175,4 +175,5 @@ Qwen2.5-VL-7B      | ZS           | tbd  | tbd  | tbd  | tbd  | tbd
 - 审稿意见: `docs/reviewer-comments.md`
 - 模型注册: `config/__init__.py`, `models/__init__.py`
 - LoRA 配置: `config/training.py`
+- LoRA NaN 分析 (bf16 修复): [[2026-06-05-lora-nan-analysis]]
 - Few-shot 管线: `fewshot/sampler.py`, `scripts/run_fewshot.py`

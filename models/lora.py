@@ -28,7 +28,7 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=torch.bfloat16,  # bf16: same range as fp32
         bnb_4bit_use_double_quant=True,
     )
 
@@ -36,7 +36,7 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
         model_id,
         quantization_config=bnb_config,
         device_map=device,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.bfloat16,
     )
     model = get_peft_model(base_model, lora_config)
     model.config.use_cache = False
@@ -52,7 +52,7 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,
     )
 
@@ -60,7 +60,7 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
         model_id,
         quantization_config=bnb_config,
         device_map=device,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.bfloat16,
     )
     model = PeftModel.from_pretrained(base_model, lora_dir)
     model.eval()

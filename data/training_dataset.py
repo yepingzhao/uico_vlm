@@ -149,6 +149,11 @@ class UICOInstructionDataset(Dataset):
             "labels": labels,
             "attention_mask": inputs.get("attention_mask", torch.ones_like(input_ids)).squeeze(0),
             "image_grid_thw": inputs.get("image_grid_thw", torch.tensor([[1, 1, 1]])).squeeze(0),
+            "mm_token_type_ids": (
+                inputs["mm_token_type_ids"].squeeze(0)
+                if inputs.get("mm_token_type_ids") is not None
+                else None
+            ),
         }
 
 
@@ -160,7 +165,13 @@ def collate_fn(processor, batch):
     max_len = max(item["input_ids"].size(0) for item in batch)
     pad_token_id = processor.tokenizer.pad_token_id
 
+    # Check whether this model provides multimodal token type IDs (Qwen2.5-VL MRoPE)
+    has_mm_tokens = all(
+        item.get("mm_token_type_ids") is not None for item in batch
+    )
+
     input_ids_list, labels_list, mask_list = [], [], []
+    mm_token_list = [] if has_mm_tokens else None
     for item in batch:
         ids = item["input_ids"]
         labs = item["labels"]
@@ -173,11 +184,19 @@ def collate_fn(processor, batch):
         input_ids_list.append(ids)
         labels_list.append(labs)
         mask_list.append(am)
+        if has_mm_tokens:
+            mm = item["mm_token_type_ids"]
+            if pad_len > 0:
+                mm = torch.cat([mm, torch.zeros(pad_len, dtype=mm.dtype)])
+            mm_token_list.append(mm)
 
-    return {
+    result = {
         "pixel_values": pixel_values,
         "image_grid_thw": image_grid_thw,
         "input_ids": torch.stack(input_ids_list),
         "attention_mask": torch.stack(mask_list),
         "labels": torch.stack(labels_list),
     }
+    if has_mm_tokens:
+        result["mm_token_type_ids"] = torch.stack(mm_token_list)
+    return result

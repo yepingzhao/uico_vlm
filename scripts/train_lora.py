@@ -193,13 +193,16 @@ def train():
 
         for step, batch in enumerate(train_loader):
             pixel_values = batch["pixel_values"].to(
-                config.device, dtype=torch.float16)
+                config.device, dtype=torch.bfloat16)
             input_ids = batch["input_ids"].to(config.device)
             attention_mask = batch["attention_mask"].to(config.device)
             labels = batch["labels"].to(config.device)
             image_grid_thw = batch.get("image_grid_thw")
             if image_grid_thw is not None:
                 image_grid_thw = image_grid_thw.to(config.device)
+            mm_token_type_ids = batch.get("mm_token_type_ids")
+            if mm_token_type_ids is not None:
+                mm_token_type_ids = mm_token_type_ids.to(config.device)
 
             model_kwargs = dict(
                 pixel_values=pixel_values, input_ids=input_ids,
@@ -207,9 +210,19 @@ def train():
             )
             if image_grid_thw is not None:
                 model_kwargs["image_grid_thw"] = image_grid_thw
+            if mm_token_type_ids is not None:
+                model_kwargs["mm_token_type_ids"] = mm_token_type_ids
 
             outputs = model(**model_kwargs)
             loss = outputs.loss / config.gradient_accumulation_steps
+
+            # NaN/Inf detection (safety net)
+            if torch.isnan(loss) or torch.isinf(loss):
+                msg = (f"Loss is NaN/Inf at global_step={global_step}, "
+                       f"batch={step}. Aborting training.")
+                print(f"\n[FATAL] {msg}", flush=True)
+                raise RuntimeError(msg)
+
             loss.backward()
             total_loss += loss.item()
             epoch_loss += loss.item()

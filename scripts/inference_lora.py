@@ -91,7 +91,7 @@ def main():
                 conv, add_generation_prompt=True)
             inputs = processor(
                 images=image, text=prompt, return_tensors="pt"
-            ).to(args.device, torch.float16)
+            ).to(args.device, torch.bfloat16)
 
             with torch.no_grad():
                 output_ids = model.generate(
