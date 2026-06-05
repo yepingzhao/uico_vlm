@@ -13,9 +13,11 @@ Output:
 """
 
 import argparse
+import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import torch
@@ -83,6 +85,26 @@ def train():
 
     torch.manual_seed(config.seed)
     os.makedirs(config.output_dir, exist_ok=True)
+
+    # ── Training log (structured JSON for agent cross-session sync) ──
+    log_path = os.path.join(config.output_dir, "training.log")
+
+    def _log(entry: dict):
+        """Append a JSON line to the training log (unbuffered)."""
+        entry.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        with open(log_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+            f.flush()
+        # Also print to stdout for interactive monitoring
+        if "loss" in entry:
+            print(f"  step={entry['step']}/{entry['total']} "
+                  f"loss={entry['loss']:.4f} lr={entry['lr']:.2e}", flush=True)
+
+    _log({"event": "start", "model": args.model, "model_id": config.model_id,
+          "lora_r": config.lora_r, "lora_alpha": config.lora_alpha,
+          "lr": config.learning_rate, "epochs": config.num_epochs,
+          "target_modules": list(config.target_modules),
+          "warmup_ratio": config.warmup_ratio})
 
     print(f"[Config] model={args.model} model_id={config.model_id}")
     print(f"[Config] LoRA r={config.lora_r} alpha={config.lora_alpha}")
@@ -203,8 +225,9 @@ def train():
                 if global_step % config.logging_steps == 0:
                     avg = total_loss / config.logging_steps
                     lr = scheduler.get_last_lr()[0]
-                    print(f"  step={global_step}/{total_steps} loss={avg:.4f} "
-                          f"lr={lr:.2e}", flush=True)
+                    _log({"step": global_step, "total": total_steps,
+                          "loss": round(avg, 6), "lr": lr,
+                          "epoch": epoch + 1})
                     if not args.no_swanlab:
                         import swanlab
                         swanlab.log({"loss": avg, "lr": lr}, step=global_step)
@@ -214,9 +237,13 @@ def train():
                     ckpt_dir = os.path.join(
                         config.output_dir, f"checkpoint-{global_step}")
                     model.save_pretrained(ckpt_dir)
+                    _log({"event": "checkpoint", "step": global_step,
+                          "epoch": epoch + 1})
                     print(f"  [Save] {ckpt_dir}")
 
         avg_ep = epoch_loss / len(train_loader) * config.gradient_accumulation_steps
+        _log({"event": "epoch_end", "epoch": epoch + 1,
+              "avg_loss": round(avg_ep, 6), "step": global_step})
         print(f"[Epoch {epoch+1}] avg_loss={avg_ep:.4f}")
 
     # ── Final save ──
@@ -225,6 +252,7 @@ def train():
     if not args.no_swanlab:
         import swanlab
         swanlab.finish()
+    _log({"event": "done", "step": global_step, "output_dir": config.output_dir})
     print(f"\n[Done] -> {config.output_dir}")
 
 
