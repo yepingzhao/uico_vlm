@@ -124,17 +124,22 @@ class UICOInstructionDataset(Dataset):
         )
         input_ids = inputs["input_ids"].squeeze(0)
 
-        # Mask user prompt + image tokens; train only on assistant response
+        # Mask user prompt + image tokens; train only on assistant response.
+        # CRITICAL: user-only prefix must be tokenized WITH the image so that
+        # image placeholder expansion (e.g. <image> → 576 tokens in LLaVA) is
+        # consistent between user_ids and input_ids. Otherwise the prefix length
+        # misaligns and prompt text leaks into the loss (see commit message).
         user_only = self.processor.apply_chat_template(
             [conversation[0]], add_generation_prompt=True
         )
-        user_ids = self.processor.tokenizer(
-            user_only, return_tensors="pt"
-        )["input_ids"].squeeze(0)
+        user_inputs = self.processor(
+            images=image, text=user_only, return_tensors="pt",
+        )
+        user_ids = user_inputs["input_ids"].squeeze(0)
 
         labels = input_ids.clone()
         labels[:len(user_ids)] = -100
-        # Mask image placeholder tokens (model-specific IDs)
+        # Mask any remaining image placeholder tokens (model-specific IDs)
         for tid in self._image_token_ids:
             labels[input_ids == tid] = -100
 

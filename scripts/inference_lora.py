@@ -24,6 +24,7 @@ from config.training import get_lora_config
 from data.dataset import load_test_dataset
 from models.lora import load_qlora_for_inference
 from models.utils import load_checkpoint
+from prompts.templates import PROMPT_A
 
 
 def _import_class(class_name: str):
@@ -72,7 +73,7 @@ def main():
         return
 
     os.makedirs(lora_dir, exist_ok=True)
-    user_prompt = "Describe this urban scene in one sentence."
+    user_prompt = PROMPT_A
 
     with open(pred_file, "a") as f_out:
         for i, img_id in enumerate(remaining):
