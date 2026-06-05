@@ -43,12 +43,12 @@ def train():
     parser = argparse.ArgumentParser(description="QLoRA VLM Fine-Tuning")
     parser.add_argument("--model", type=str, default="llava",
                         help="Model short name (see config/training.py).")
-    parser.add_argument("--lora_r", type=int, default=8)
-    parser.add_argument("--lora_alpha", type=int, default=16)
+    parser.add_argument("--lora_r", type=int, default=16)
+    parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--grad_accum", type=int, default=8)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--max_samples", type=int, default=0,
                         help="Limit training samples (0 = all).")
     parser.add_argument("--save_steps", type=int, default=2000)

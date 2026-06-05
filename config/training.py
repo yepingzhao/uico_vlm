@@ -25,9 +25,9 @@ class TrainingConfig:
     train_ann_file: str = os.path.join(DATA_BASE, "annotations", "captions_train.json")
     max_samples: int = 0
 
-    # LoRA
-    lora_r: int = 8
-    lora_alpha: int = 16
+    # LoRA (community-standard for QLoRA VLM captioning)
+    lora_r: int = 16
+    lora_alpha: int = 32
     lora_dropout: float = 0.05
 
     # Training
@@ -49,23 +49,37 @@ class TrainingConfig:
 
 
 MODEL_LORA_CONFIGS: Dict[str, dict] = {
+    # Community-standard QLoRA config for VLM captioning:
+    # - r=16 (mid-range for complex cross-modal tasks, QLoRA compensation)
+    # - alpha=32 (2×r, standard scaling)
+    # - target_modules: all 7 linear projections (attention + MLP)
+    #   per VLM fine-tuning best practices (Qwen-VL / LLaVA guides)
     "llava": {
         "model_id": "llava-hf/llava-1.5-7b-hf",
         "model_class_name": "LlavaForConditionalGeneration",
         "processor_class_name": "AutoProcessor",
-        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "target_modules": (
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+        ),
     },
     "llava-next": {
         "model_id": "llava-hf/llava-v1.6-mistral-7b-hf",
         "model_class_name": "LlavaNextForConditionalGeneration",
         "processor_class_name": "LlavaNextProcessor",
-        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "target_modules": (
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+        ),
     },
     "qwen2vl": {
         "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
         "model_class_name": "Qwen2_5_VLForConditionalGeneration",
         "processor_class_name": "AutoProcessor",
-        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "target_modules": (
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+        ),
     },
 }
 
