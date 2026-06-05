@@ -123,16 +123,3 @@ def compute_ref_based_metrics(
     finally:
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-def compute_sm(metrics: Dict[str, float]) -> float:
-    """Compute S_m from a metrics dict (paper Eq. 1)."""
-    keys = ["BLEU-4", "METEOR", "ROUGE_L", "CIDEr", "SPICE"]
-    vals = []
-    for k in keys:
-        v = metrics.get(k, 0.0)
-        if v == 0.0:
-            alt = k.replace("-", "_")
-            v = metrics.get(alt, 0.0)
-        vals.append(v)
-    return sum(vals) / 5.0

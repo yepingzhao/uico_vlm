@@ -9,7 +9,6 @@ OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 # --- Data paths ---
 DATA_BASE = "/home/uesr/zhao/media_data/ccmc"
 ANNOTATIONS_DIR = os.path.join(DATA_BASE, "annotations")
-IMAGES_DIR = os.path.join(DATA_BASE, "images")
 TEST_ANN_FILE = os.path.join(ANNOTATIONS_DIR, "captions_test.json")
 IMAGES_BASE_DIR = os.path.join(DATA_BASE, "images")
 
@@ -34,9 +33,6 @@ MODEL_REGISTRY = [
     ("llama32-vision",  "meta-llama/Llama-3.2-11B-Vision-Instruct","Llama32VisionWrapper"),
 ]
 
-# Phase 1 development models (lightweight, fast verification)
-DEV_MODELS = ["blip2", "llava"]
-
 # Prompt templates are defined in prompts/templates.py (single source of truth).
 # Sensitivity analysis: only run B/C on these models
 SENSITIVITY_MODELS = ["llava", "qwen2vl"]
@@ -45,16 +41,10 @@ SENSITIVITY_MODELS = ["llava", "qwen2vl"]
 CLIP_MODEL_NAME = "openai/clip-vit-large-patch14"
 
 # --- Phase control ---
-DEV_SAMPLE_SIZE = 1000   # number of images for Phase 1 dev validation
 RANDOM_SEED = 42
 
 # --- Inference ---
 MAX_NEW_TOKENS = 128
-BATCH_SIZE = 1           # single-image inference for VLM generation
-
-# --- Beam search (off for most VLM zero-shot; use greedy) ---
-DO_SAMPLE = False
-TEMPERATURE = 1.0
 
 # --- vLLM backend ---
 VLLM_GPU_MEMORY_UTILIZATION = 0.9

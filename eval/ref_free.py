@@ -21,55 +21,6 @@ class CLIPScorer:
         self._model.eval()
 
     @torch.no_grad()
-    def compute_clipscore(
-        self,
-        image_paths: Dict[int, str],
-        captions: Dict[int, str],
-    ) -> Dict[str, float]:
-        """Compute CLIPScore: cos-sim(image_emb, text_emb).
-
-        Args:
-            image_paths: {image_id: image_path}
-            captions: {image_id: generated_caption}
-
-        Returns:
-            {"CLIPScore": mean_score}
-        """
-        if not image_paths:
-            return {"CLIPScore": 0.0}
-
-        scores = []
-        img_ids = sorted(set(image_paths.keys()) & set(captions.keys()))
-
-        for img_id in img_ids:
-            img_path = image_paths[img_id]
-            caption = captions[img_id]
-
-            try:
-                image = Image.open(img_path).convert("RGB")
-            except Exception:
-                continue
-
-            inputs = self._processor(
-                text=[caption],
-                images=image,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-            ).to(self.device)
-
-            outputs = self._model(**inputs)
-            img_emb = outputs.image_embeds[0]
-            txt_emb = outputs.text_embeds[0]
-
-            # Cosine similarity
-            sim = torch.nn.functional.cosine_similarity(img_emb, txt_emb, dim=0)
-            scores.append(sim.item())
-
-        avg_score = sum(scores) / len(scores) if scores else 0.0
-        return {"CLIPScore": avg_score}
-
-    @torch.no_grad()
     def compute_refclipscore(
         self,
         image_paths: Dict[int, str],

@@ -38,7 +38,6 @@ class TrainingConfig:
     warmup_ratio: float = 0.03
     num_epochs: int = 1
     max_grad_norm: float = 1.0
-    max_length: int = 128
 
     # Checkpoint
     save_steps: int = 2000

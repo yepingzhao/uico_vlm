@@ -89,7 +89,7 @@ class UICOInstructionDataset(Dataset):
             if not os.path.exists(path):
                 continue
             captions = by_image[img_id]
-            idx = torch.randint(0, len(captions), (1,), generator=rng).item()
+            idx = int(torch.randint(0, len(captions), (1,), generator=rng).item())
             self.samples.append((path, captions[idx]))
 
         print(f"[Dataset] {len(self.samples)} training examples "
