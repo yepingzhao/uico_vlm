@@ -128,7 +128,9 @@ def train():
         r=config.lora_r, alpha=config.lora_alpha,
         dropout=config.lora_dropout, target_modules=list(config.target_modules),
     )
-    model = load_qlora_model(model_class, config.model_id, lora_config, config.device)
+    model = load_qlora_model(model_class, config.model_id, lora_config,
+                              config.device,
+                              trust_remote_code=model_cfg.get("trust_remote_code", False))
     model.print_trainable_parameters()
     print(f"[Load] Done in {time.time() - t0:.1f}s")
 

@@ -78,6 +78,22 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         # Stick to attention-only projections; LLaVA is stable with 7.
         "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
     },
+    "phi35-vision": {
+        "model_id": "microsoft/Phi-3.5-vision-instruct",
+        "model_class_name": "AutoModelForCausalLM",
+        "processor_class_name": "AutoProcessor",
+        # Phi-3.5 uses combined projections: qkv_proj + gate_up_proj
+        "target_modules": ("qkv_proj", "o_proj", "gate_up_proj", "down_proj"),
+        "trust_remote_code": True,
+    },
+    "internvl2": {
+        "model_id": "OpenGVLab/InternVL2-8B",
+        "model_class_name": "AutoModel",
+        "processor_class_name": "AutoProcessor",
+        # InternLM2 backbone uses non-standard naming
+        "target_modules": ("wqkv", "wo", "w1", "w2", "w3"),
+        "trust_remote_code": True,
+    },
 }
 
 

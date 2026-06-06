@@ -20,7 +20,7 @@ def make_lora_config(r: int = 8, alpha: int = 16, dropout: float = 0.05,
 
 
 def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
-                     device: str = "cuda:0"):
+                     device: str = "cuda:0", trust_remote_code: bool = False):
     """Load 4-bit quantized base model with LoRA adapters for training.
 
     Returns the PEFT-wrapped model.
@@ -28,7 +28,7 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,  # bf16: same range as fp32
+        bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,
     )
 
@@ -37,6 +37,7 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
         quantization_config=bnb_config,
         device_map=device,
         torch_dtype=torch.bfloat16,
+        trust_remote_code=trust_remote_code,
     )
     model = get_peft_model(base_model, lora_config)
     model.config.use_cache = False
@@ -44,7 +45,8 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
 
 
 def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
-                             device: str = "cuda:0"):
+                             device: str = "cuda:0",
+                             trust_remote_code: bool = False):
     """Load a QLoRA model with adapters for inference.
 
     Returns (model, processor) tuple.
@@ -61,6 +63,7 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
         quantization_config=bnb_config,
         device_map=device,
         torch_dtype=torch.bfloat16,
+        trust_remote_code=trust_remote_code,
     )
     model = PeftModel.from_pretrained(base_model, lora_dir)
     model.eval()

@@ -36,6 +36,9 @@ def _detect_image_token_ids(processor) -> set:
         tid = tok.convert_tokens_to_ids(token_name)
         if isinstance(tid, int) and tid != tok.unk_token_id:
             ids.add(tid)
+    # Phi-3.5-Vision: <|image_1|> tokenizes to multiple sub-tokens
+    phi_image_ids = tok.encode("<|image_1|>", add_special_tokens=False)
+    ids.update(phi_image_ids)
     if not ids:
         # Fallback for unknown models
         ids = {32000}
