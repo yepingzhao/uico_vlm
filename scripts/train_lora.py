@@ -139,6 +139,7 @@ def train():
     processor_class = _import_class(config.processor_class_name)
     processor_kwargs = {}
     is_internvl2 = args.model == "internvl2"
+    is_phi35 = args.model == "phi35-vision"
     if is_internvl2:
         # InternVL2: AutoProcessor returns only the tokenizer (no image
         # processor). We load the image processor (CLIP) separately and
@@ -171,6 +172,11 @@ def train():
             trust_remote_code=model_cfg.get("trust_remote_code", False),
             **processor_kwargs,
         )
+    if is_phi35:
+        # Phi3VProcessor has no chat_template attribute (it lives on the
+        # tokenizer). ProcessorMixin.apply_chat_template() accesses
+        # self.chat_template first, so we copy it from the tokenizer.
+        processor.chat_template = processor.tokenizer.chat_template
 
     train_ds = UICOInstructionDataset(
         ann_file=config.train_ann_file,
@@ -178,6 +184,7 @@ def train():
         max_samples=config.max_samples,
         seed=config.seed,
         is_internvl2=is_internvl2,
+        is_phi35=is_phi35,
     )
     if is_internvl2:
         train_ds.image_processor = image_processor
@@ -338,6 +345,23 @@ def train():
                         max_new_tokens=128,
                         do_sample=False,
                     )
+            elif is_phi35:
+                # Phi-3.5: string content with <|image_1|> tag, processor
+                # handles image+text via __call__. Chat template accessible
+                # because we copied it from tokenizer to processor.
+                conv = [{
+                    "role": "user",
+                    "content": f"<|image_1|>\n{PROMPT_A}",
+                }]
+                text_prompt = processor.apply_chat_template(
+                    conv, add_generation_prompt=True)
+                inputs = processor(
+                    images=image, text=text_prompt, return_tensors="pt"
+                ).to(config.device, torch.bfloat16)
+                input_len = inputs["input_ids"].shape[1]
+                with torch.no_grad():
+                    output_ids = model.generate(
+                        **inputs, max_new_tokens=128, do_sample=False)
             else:
                 conv = [{
                     "role": "user",

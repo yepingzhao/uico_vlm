@@ -32,6 +32,7 @@ MODEL_REGISTRY = [
     ("internvl25",      "OpenGVLab/InternVL2_5-8B",               "InternVL25Wrapper"),
     ("pixtral",         "mistralai/Pixtral-12B-2409",             "PixtralWrapper"),
     ("llama32-vision",  "meta-llama/Llama-3.2-11B-Vision-Instruct","Llama32VisionWrapper"),
+    ("qwen3vl",         "Qwen/Qwen3-VL-8B-Instruct",               "Qwen3VLWrapper"),
 ]
 
 # Prompt templates are defined in prompts/templates.py (single source of truth).

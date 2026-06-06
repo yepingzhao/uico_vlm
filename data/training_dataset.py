@@ -81,10 +81,12 @@ class UICOInstructionDataset(Dataset):
         seed: int = 42,
         is_internvl2: bool = False,
         num_image_tokens: int = _INTERNVL2_NUM_IMAGE_TOKENS,
+        is_phi35: bool = False,
     ):
         self.processor = processor
         self.user_prompt = user_prompt
         self.is_internvl2 = is_internvl2
+        self.is_phi35 = is_phi35
         self.num_image_tokens = num_image_tokens
         self._image_token_ids = _detect_image_token_ids(
             processor, is_internvl2=is_internvl2)
@@ -129,6 +131,8 @@ class UICOInstructionDataset(Dataset):
 
         if self.is_internvl2:
             return self._getitem_internvl2(image, caption)
+        if self.is_phi35:
+            return self._getitem_phi35(image, caption)
         return self._getitem_standard(image, caption)
 
     def _getitem_standard(self, image: Image.Image, caption: str) -> dict:
@@ -245,6 +249,60 @@ class UICOInstructionDataset(Dataset):
             "image_sizes": None,
             "mm_token_type_ids": None,
             "image_flags": image_flags,
+        }
+
+    def _getitem_phi35(self, image: Image.Image, caption: str) -> dict:
+        """Phi-3.5-Vision processing.
+
+        Phi3VProcessor lacks a chat_template attribute (it lives on the
+        tokenizer only), and its chat template expects plain-string content
+        with <|image_1|> as the image placeholder. The processor itself
+        handles image+text tokenization correctly via __call__.
+        """
+        # 1. Build user-only conversation (string content with <|image_1|> tag)
+        user_conv = [
+            {"role": "user", "content": f"<|image_1|>\n{self.user_prompt}"},
+        ]
+        user_text = self.processor.apply_chat_template(
+            user_conv, add_generation_prompt=True)
+
+        # 2. Build full conversation
+        full_conv = [
+            {"role": "user", "content": f"<|image_1|>\n{self.user_prompt}"},
+            {"role": "assistant", "content": caption},
+        ]
+        full_text = self.processor.apply_chat_template(
+            full_conv, add_generation_prompt=False)
+
+        # 3. Tokenize text + process image together (Phi3VProcessor handles both)
+        user_inputs = self.processor(
+            images=image, text=user_text, return_tensors="pt")
+        full_inputs = self.processor(
+            images=image, text=full_text, return_tensors="pt")
+
+        input_ids = full_inputs["input_ids"].squeeze(0)
+        user_ids = user_inputs["input_ids"].squeeze(0)
+
+        # 4. Build labels: mask user prefix
+        labels = input_ids.clone()
+        labels[:len(user_ids)] = -100
+
+        # 5. pixel_values: [num_crops+1, 3, 336, 336]
+        pixel_values = full_inputs["pixel_values"].squeeze(0)
+        image_sizes = full_inputs.get("image_sizes")
+        if image_sizes is not None:
+            image_sizes = image_sizes.squeeze(0)
+
+        return {
+            "pixel_values": pixel_values,
+            "input_ids": input_ids,
+            "labels": labels,
+            "attention_mask": full_inputs.get(
+                "attention_mask", torch.ones_like(input_ids)).squeeze(0),
+            "image_grid_thw": None,
+            "image_sizes": image_sizes,
+            "mm_token_type_ids": None,
+            "image_flags": None,
         }
 
 
