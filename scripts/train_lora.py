@@ -142,6 +142,12 @@ def train():
             min_pixels=128 * 28 * 28,
             max_pixels=256 * 28 * 28,
         )
+    elif args.model == "llava-next":
+        # Lower resolution for LLaVA-NeXT dynamic high resolution to fit 24GB
+        # Default size={336,672} → 5 patches → OOM on 24GB with QLoRA 4-bit
+        processor_kwargs = dict(
+            size={"shortest_edge": 168, "longest_edge": 336},
+        )
     processor = processor_class.from_pretrained(
         config.model_id, **processor_kwargs,
     )
