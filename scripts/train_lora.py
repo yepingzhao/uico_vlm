@@ -356,7 +356,13 @@ def train():
                     output_ids = model.generate(
                         **inputs, max_new_tokens=128, do_sample=False)
 
-            generated = output_ids[:, input_len:]
+            # InternVL2.generate() passes inputs_embeds to the language model,
+            # so the returned output_ids contain ONLY generated tokens (no input
+            # prepended). Standard models return input_ids + generated tokens.
+            if is_internvl2:
+                generated = output_ids
+            else:
+                generated = output_ids[:, input_len:]
             # Decode: for InternVL2 processor IS the tokenizer
             tok = processor.tokenizer if hasattr(processor, "tokenizer") else processor
             caption = tok.decode(

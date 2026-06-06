@@ -84,3 +84,4 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
         processor = AutoProcessor.from_pretrained(
             model_id, trust_remote_code=trust_remote_code,
             local_files_only=True)
+    return model, processor
