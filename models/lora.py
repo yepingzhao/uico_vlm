@@ -21,6 +21,26 @@ def make_lora_config(r: int = 8, alpha: int = 16, dropout: float = 0.05,
     )
 
 
+def _patch_bitsandbytes_compat():
+    """Monkey-patch bitsandbytes for models missing all_tied_weights_keys.
+
+    InternVL3/3.5 (and potentially other custom-model VLMs) lack the
+    all_tied_weights_keys attribute that bitsandbytes 4-bit quantization
+    accesses during model loading. Provide a fallback to prevent crashes.
+
+    Idempotent — safe to call multiple times.
+    """
+    import transformers.quantizers.base as _qbase
+    if not hasattr(_qbase, "_uico_patched"):
+        _orig = _qbase.get_keys_to_not_convert
+        def _safe_get_keys(model):
+            if not hasattr(model, "all_tied_weights_keys"):
+                model.all_tied_weights_keys = {}
+            return _orig(model)
+        _qbase.get_keys_to_not_convert = _safe_get_keys
+        _qbase._uico_patched = True
+
+
 def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
                      device: str = "cuda:0", trust_remote_code: bool = False,
                      model_kwargs: dict = None):
@@ -39,17 +59,7 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
     if model_kwargs:
         extra.update(model_kwargs)
 
-    # Fix: some custom-model VLMs (InternVL3, InternVL3.5) lack
-    # all_tied_weights_keys, which bitsandbytes 4-bit quantization
-    # accesses during model loading. Patch transformers internals
-    # to provide a fallback instead of crashing.
-    import transformers.quantizers.base as _qbase
-    _orig_get_keys = _qbase.get_keys_to_not_convert
-    def _safe_get_keys(model):
-        if not hasattr(model, "all_tied_weights_keys"):
-            model.all_tied_weights_keys = {}
-        return _orig_get_keys(model)
-    _qbase.get_keys_to_not_convert = _safe_get_keys
+    _patch_bitsandbytes_compat()
 
     base_model = model_class.from_pretrained(
         model_id,
@@ -65,7 +75,8 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
 
 def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
                              device: str = "cuda:0",
-                             trust_remote_code: bool = False):
+                             trust_remote_code: bool = False,
+                             model_kwargs: dict = None):
     """Load a QLoRA model with adapters for inference.
 
     Returns (model, processor) tuple.
@@ -77,12 +88,18 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
         bnb_4bit_use_double_quant=True,
     )
 
+    extra = dict(trust_remote_code=trust_remote_code)
+    if model_kwargs:
+        extra.update(model_kwargs)
+
+    _patch_bitsandbytes_compat()
+
     base_model = model_class.from_pretrained(
         model_id,
         quantization_config=bnb_config,
         device_map=device,
         torch_dtype=torch.bfloat16,
-        trust_remote_code=trust_remote_code,
+        **extra,
     )
     model = PeftModel.from_pretrained(base_model, lora_dir)
     model.eval()

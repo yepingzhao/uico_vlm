@@ -107,16 +107,8 @@ def compute_ref_based_metrics(
             metrics[key] = score * 100
 
         # Compute S_m (composite) per paper Eq.(1)
-        sm_keys = ["BLEU-4", "METEOR", "ROUGE_L", "CIDEr", "SPICE"]
-        alt_map = {"BLEU_4": "BLEU-4"}
-        resolved = {}
-        for k in sm_keys:
-            val = metrics.get(k)
-            if val is None:
-                val = metrics.get(alt_map.get(k, k), 0.0)
-            resolved[k] = val
-
-        metrics["S_m"] = sum(resolved[k] for k in sm_keys) / 5.0
+        sm_keys = ["BLEU_4", "METEOR", "ROUGE_L", "CIDER", "SPICE"]
+        metrics["S_m"] = sum(metrics.get(k, 0.0) for k in sm_keys) / len(sm_keys)
 
         return metrics
 

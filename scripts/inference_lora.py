@@ -19,7 +19,7 @@ from PIL import Image
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import OUTPUT_DIR, RANDOM_SEED
+from config import MAX_NEW_TOKENS, OUTPUT_DIR, RANDOM_SEED
 from config.training import get_lora_config
 from data.dataset import load_test_dataset
 from models.lora import load_qlora_for_inference
@@ -56,6 +56,8 @@ def main():
     model_class = _import_class(model_cfg["model_class_name"])
     model, processor = load_qlora_for_inference(
         model_class, model_id, lora_dir, args.device,
+        trust_remote_code=model_cfg.get("trust_remote_code", False),
+        model_kwargs=model_cfg.get("model_kwargs"),
     )
     print(f"[Load] Done in {time.time() - t0:.1f}s")
 
@@ -95,7 +97,7 @@ def main():
 
             with torch.no_grad():
                 output_ids = model.generate(
-                    **inputs, max_new_tokens=128, do_sample=False)
+                    **inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
             generated = output_ids[:, inputs["input_ids"].shape[1]:]
             caption = processor.decode(
                 generated[0], skip_special_tokens=True).strip()
