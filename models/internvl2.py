@@ -27,6 +27,7 @@ class InternVL2Wrapper(InternVLBase):
             _mu.PreTrainedModel, "_move_missing_keys_from_meta_to_device", None)
         _was_patched = hasattr(_mu, "_internvl2_patched")
 
+        # Define patched functions (closures capture originals).
         if not _was_patched and _orig_gbc is not None:
             def _patched_gbc(model, accelerator_device_map, hf_quantizer):
                 if not hasattr(model, "all_tied_weights_keys"):
@@ -39,13 +40,15 @@ class InternVL2Wrapper(InternVLBase):
                     self.all_tied_weights_keys = tied if tied is not None else {}
                 return _orig_move(self, *args, **kwargs)
 
-            _mu.get_total_byte_count = _patched_gbc
-            _mu.PreTrainedModel._move_missing_keys_from_meta_to_device = _patched_move
-            _mu._internvl2_patched = True
-
         snap_dir = find_snapshot_dir(self.model_id)
         self._load_tokenizer(snap_dir)
         self._load_image_processor()
+
+        # Apply patch only for the model-load window; restore immediately.
+        if not _was_patched and _orig_gbc is not None:
+            _mu.get_total_byte_count = _patched_gbc
+            _mu.PreTrainedModel._move_missing_keys_from_meta_to_device = _patched_move
+            _mu._internvl2_patched = True
         try:
             self._load_model(self.model_id, device)
         finally:
