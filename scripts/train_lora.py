@@ -138,7 +138,7 @@ def train():
     # ── Load data ──
     processor_class = _import_class(config.processor_class_name)
     processor_kwargs = {}
-    is_internvl2 = args.model == "internvl2"
+    is_internvl2 = args.model in ("internvl2", "internvl3", "internvl35")
     is_phi35 = args.model == "phi35-vision"
     if is_internvl2:
         # InternVL2: AutoProcessor returns only the tokenizer (no image

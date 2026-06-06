@@ -107,6 +107,26 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
         "model_kwargs": {"local_files_only": True},
     },
+    # InternVL3/3.5: Qwen2/Qwen3 LLM backbone + InternViT vision.
+    # Chat template = internvl2_5 (same <img>/IMG_CONTEXT format as InternVL2).
+    # Uses InternVLChatModel → AutoModel with trust_remote_code.
+    # Target modules follow Qwen naming (not InternLM2 naming).
+    "internvl3": {
+        "model_id": "OpenGVLab/InternVL3-8B",
+        "model_class_name": "AutoModel",
+        "processor_class_name": "AutoProcessor",
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "trust_remote_code": True,
+        "model_kwargs": {"local_files_only": True},
+    },
+    "internvl35": {
+        "model_id": "OpenGVLab/InternVL3_5-8B",
+        "model_class_name": "AutoModel",
+        "processor_class_name": "AutoProcessor",
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "trust_remote_code": True,
+        "model_kwargs": {"local_files_only": True},
+    },
 }
 
 
