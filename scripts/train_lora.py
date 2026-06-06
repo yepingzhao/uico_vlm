@@ -141,18 +141,34 @@ def train():
     is_internvl2 = args.model in ("internvl2", "internvl3", "internvl35")
     is_phi35 = args.model == "phi35-vision"
     if is_internvl2:
-        # InternVL2: AutoProcessor returns only the tokenizer (no image
-        # processor). We load the image processor (CLIP) separately and
-        # attach it to the tokenizer for use in the training dataset.
-        processor = processor_class.from_pretrained(
-            config.model_id,
-            trust_remote_code=model_cfg.get("trust_remote_code", False),
-        )
+        # InternVL2/3/3.5: AutoProcessor returns only the tokenizer (no image
+        # processor), except InternVL3.5 where processor_config.json causes
+        # InternVLProcessor to be used — which crashes on TokenizersBackend
+        # (missing start_image_token etc.). For InternVL3.5, force-load the
+        # tokenizer directly and bypass InternVLProcessor entirely.
+        # We load the image processor separately and attach it for use in the
+        # training dataset.
+        if args.model == "internvl35":
+            from transformers import AutoTokenizer as _Tok
+            processor = _Tok.from_pretrained(
+                config.model_id,
+                trust_remote_code=model_cfg.get("trust_remote_code", False),
+            )
+        else:
+            processor = processor_class.from_pretrained(
+                config.model_id,
+                trust_remote_code=model_cfg.get("trust_remote_code", False),
+            )
         from transformers import AutoImageProcessor
         image_processor = AutoImageProcessor.from_pretrained(
             config.model_id,
             trust_remote_code=model_cfg.get("trust_remote_code", False),
         )
+        # InternVL3.5: force single-patch mode for training stability.
+        # Dynamic patches produce variable-length IMG_CONTEXT (256-3072 tokens)
+        # which causes extreme sequence length variation → QLoRA instability.
+        if args.model == "internvl35":
+            image_processor.max_patches = 1
     elif args.model == "qwen2vl":
         # Lower resolution for QLoRA training to fit 24GB VRAM
         # (Qwen2.5-VL dynamic resolution can produce very large feature maps)

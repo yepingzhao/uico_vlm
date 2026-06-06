@@ -24,21 +24,43 @@ def make_lora_config(r: int = 8, alpha: int = 16, dropout: float = 0.05,
 def _patch_bitsandbytes_compat():
     """Monkey-patch bitsandbytes for models missing all_tied_weights_keys.
 
-    InternVL3/3.5 (and potentially other custom-model VLMs) lack the
+    InternVL3/3.5 (and other custom-model VLMs) may lack the
     all_tied_weights_keys attribute that bitsandbytes 4-bit quantization
-    accesses during model loading. Provide a fallback to prevent crashes.
+    accesses during model loading in transformers >= 5.x. Provide a
+    fallback to prevent crashes.
 
-    Idempotent — safe to call multiple times.
+    Transformers 4.x: get_keys_to_not_convert lives in integrations.bitsandbytes
+    Transformers 5.x: get_keys_to_not_convert lives in quantizers.base
+
+    Idempotent — safe to call multiple times. No-op if the function
+    doesn't use all_tied_weights_keys (4.x path).
     """
-    import transformers.quantizers.base as _qbase
-    if not hasattr(_qbase, "_uico_patched"):
-        _orig = _qbase.get_keys_to_not_convert
-        def _safe_get_keys(model):
-            if not hasattr(model, "all_tied_weights_keys"):
-                model.all_tied_weights_keys = {}
-            return _orig(model)
-        _qbase.get_keys_to_not_convert = _safe_get_keys
-        _qbase._uico_patched = True
+    import importlib
+
+    # Try both locations (5.x API then 4.x API)
+    for module_name in (
+        "transformers.quantizers.base",
+        "transformers.integrations.bitsandbytes",
+    ):
+        try:
+            _mod = importlib.import_module(module_name)
+            _orig = _mod.get_keys_to_not_convert
+            break
+        except (ImportError, AttributeError):
+            continue
+    else:
+        return  # not found — nothing to patch
+
+    if hasattr(_mod, "_uico_patched"):
+        return  # already patched
+
+    def _safe_get_keys(model):
+        if not hasattr(model, "all_tied_weights_keys"):
+            model.all_tied_weights_keys = {}
+        return _orig(model)
+
+    _mod.get_keys_to_not_convert = _safe_get_keys
+    _mod._uico_patched = True
 
 
 def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
