@@ -91,7 +91,7 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
     },
     "internvl2": {
         "model_id": "OpenGVLab/InternVL2-8B",
-        "model_class_name": "AutoModel",
+        "model_class_name": "AutoModelForCausalLM",
         "processor_class_name": "AutoProcessor",
         # InternLM2 backbone uses non-standard naming
         "target_modules": ("wqkv", "wo", "w1", "w2", "w3"),

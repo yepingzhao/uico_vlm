@@ -138,7 +138,21 @@ def train():
     # ── Load data ──
     processor_class = _import_class(config.processor_class_name)
     processor_kwargs = {}
-    if args.model == "qwen2vl":
+    is_internvl2 = args.model == "internvl2"
+    if is_internvl2:
+        # InternVL2: AutoProcessor returns only the tokenizer (no image
+        # processor). We load the image processor (CLIP) separately and
+        # attach it to the tokenizer for use in the training dataset.
+        processor = processor_class.from_pretrained(
+            config.model_id,
+            trust_remote_code=model_cfg.get("trust_remote_code", False),
+        )
+        from transformers import AutoImageProcessor
+        image_processor = AutoImageProcessor.from_pretrained(
+            config.model_id,
+            trust_remote_code=model_cfg.get("trust_remote_code", False),
+        )
+    elif args.model == "qwen2vl":
         # Lower resolution for QLoRA training to fit 24GB VRAM
         # (Qwen2.5-VL dynamic resolution can produce very large feature maps)
         processor_kwargs = dict(
@@ -151,18 +165,38 @@ def train():
         processor_kwargs = dict(
             size={"shortest_edge": 168, "longest_edge": 336},
         )
-    processor = processor_class.from_pretrained(
-        config.model_id,
-        trust_remote_code=model_cfg.get("trust_remote_code", False),
-        **processor_kwargs,
-    )
+    if not is_internvl2:
+        processor = processor_class.from_pretrained(
+            config.model_id,
+            trust_remote_code=model_cfg.get("trust_remote_code", False),
+            **processor_kwargs,
+        )
 
     train_ds = UICOInstructionDataset(
         ann_file=config.train_ann_file,
         processor=processor,
         max_samples=config.max_samples,
         seed=config.seed,
+        is_internvl2=is_internvl2,
     )
+    if is_internvl2:
+        train_ds.image_processor = image_processor
+        # InternVL2's forward()/generate() assert img_context_token_id is set.
+        # PEFT wraps: PeftModel.base_model (LoraModel).model (InternVLChatModel).
+        # When PeftModel.generate() calls base_model.generate(), LoraModel's
+        # __getattr__ delegates to self.model (= InternVLChatModel).generate().
+        # So we must set the attribute on InternVLChatModel directly, because
+        # Python __setattr__ is NOT delegated by __getattr__.
+        _img_ctx = processor.convert_tokens_to_ids("<IMG_CONTEXT>")
+        # Navigate to the innermost model: PeftModel → LoraModel → InternVLChatModel
+        _inner = model
+        for _step in ("base_model", "model"):
+            _inner = getattr(_inner, _step, _inner)
+        # _inner should now be InternVLChatModel (or InternVL2-8B equivalent)
+        if hasattr(_inner, "img_context_token_id"):
+            _inner.img_context_token_id = _img_ctx
+            print(f"[InternVL2] img_context_token_id={_img_ctx} "
+                  f"set on {type(_inner).__name__}")
 
     def _collate(batch):
         return collate_fn(processor, batch)
@@ -274,24 +308,58 @@ def train():
 
         for img_path in val_images:
             image = Image.open(img_path).convert("RGB")
-            conv = [{
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": PROMPT_A},
-                ],
-            }]
-            text_prompt = processor.apply_chat_template(
-                conv, add_generation_prompt=True)
-            inputs = processor(
-                images=image, text=text_prompt, return_tensors="pt"
-            ).to(config.device, torch.bfloat16)
+            if is_internvl2:
+                # InternVL2: expand <image> → <img><IMG_CONTEXT>×256</img>
+                # BEFORE apply_chat_template (which returns token IDs, not text).
+                img_tokens = f"<img>{'<IMG_CONTEXT>' * 256}</img>"
+                conv = [{
+                    "role": "user",
+                    "content": f"{img_tokens}\n{PROMPT_A}",
+                }]
+                result = processor.apply_chat_template(
+                    conv, add_generation_prompt=True)
+                # apply_chat_template returns BatchEncoding (dict) for InternVL2
+                ids_list = (
+                    result["input_ids"] if isinstance(result, dict)
+                    else result
+                )
+                input_ids = torch.tensor([ids_list]).to(config.device)
+                attention_mask = torch.ones_like(input_ids)
+                img_outputs = image_processor(
+                    images=image, return_tensors="pt")
+                pixel_values = img_outputs["pixel_values"].to(
+                    config.device, torch.bfloat16)
+                input_len = input_ids.shape[1]
+                with torch.no_grad():
+                    output_ids = model.generate(
+                        pixel_values=pixel_values,
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        max_new_tokens=128,
+                        do_sample=False,
+                    )
+            else:
+                conv = [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": PROMPT_A},
+                    ],
+                }]
+                text_prompt = processor.apply_chat_template(
+                    conv, add_generation_prompt=True)
+                inputs = processor(
+                    images=image, text=text_prompt, return_tensors="pt"
+                ).to(config.device, torch.bfloat16)
+                input_len = inputs["input_ids"].shape[1]
+                with torch.no_grad():
+                    output_ids = model.generate(
+                        **inputs, max_new_tokens=128, do_sample=False)
 
-            with torch.no_grad():
-                output_ids = model.generate(
-                    **inputs, max_new_tokens=128, do_sample=False)
-            generated = output_ids[:, inputs["input_ids"].shape[1]:]
-            caption = processor.decode(
+            generated = output_ids[:, input_len:]
+            # Decode: for InternVL2 processor IS the tokenizer
+            tok = processor.tokenizer if hasattr(processor, "tokenizer") else processor
+            caption = tok.decode(
                 generated[0], skip_special_tokens=True).strip()
             captions.append(caption)
 
@@ -356,6 +424,9 @@ def train():
             image_sizes = batch.get("image_sizes")
             if image_sizes is not None:
                 image_sizes = image_sizes.to(config.device)
+            image_flags = batch.get("image_flags")
+            if image_flags is not None:
+                image_flags = image_flags.to(config.device)
 
             model_kwargs = dict(
                 pixel_values=pixel_values, input_ids=input_ids,
@@ -367,8 +438,16 @@ def train():
                 model_kwargs["mm_token_type_ids"] = mm_token_type_ids
             if image_sizes is not None:
                 model_kwargs["image_sizes"] = image_sizes
+            if image_flags is not None:
+                model_kwargs["image_flags"] = image_flags
 
-            outputs = model(**model_kwargs)
+            # InternVL2: PeftModelForCausalLM.forward() injects inputs_embeds
+            # which InternVLChatModel.forward() does not accept. Route through
+            # LoraModel directly (LoRA adapters are still active).
+            if is_internvl2:
+                outputs = model.base_model(**model_kwargs)
+            else:
+                outputs = model(**model_kwargs)
             loss = outputs.loss / config.gradient_accumulation_steps
 
             # NaN/Inf detection (safety net)

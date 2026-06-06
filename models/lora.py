@@ -1,5 +1,7 @@
 """QLoRA model loading utilities shared by training and inference."""
 
+import os
+
 import torch
 from transformers import BitsAndBytesConfig, AutoProcessor
 from peft import PeftModel, LoraConfig, TaskType, get_peft_model
@@ -73,5 +75,12 @@ def load_qlora_for_inference(model_class, model_id: str, lora_dir: str,
     model = PeftModel.from_pretrained(base_model, lora_dir)
     model.eval()
 
-    processor = AutoProcessor.from_pretrained(lora_dir)
-    return model, processor
+    # Load processor from lora_dir if available, otherwise from model_id
+    # (early-stopped checkpoints may not have processor files saved)
+    preprocessor_path = os.path.join(lora_dir, "preprocessor_config.json")
+    if os.path.exists(preprocessor_path):
+        processor = AutoProcessor.from_pretrained(lora_dir)
+    else:
+        processor = AutoProcessor.from_pretrained(
+            model_id, trust_remote_code=trust_remote_code,
+            local_files_only=True)
