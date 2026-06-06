@@ -215,7 +215,17 @@ class UICOInstructionDataset(Dataset):
         ]
         user_ids = tokenizer.apply_chat_template(
             user_conv, add_generation_prompt=True)
-        user_ids = torch.tensor(user_ids)
+        # Normalize: BatchEncoding/Encoding → flat list for torch.tensor
+        # result["input_ids"] may return a wrapper — use .data[]
+        if hasattr(user_ids, "data") and "input_ids" in user_ids.data:
+            user_ids = user_ids.data["input_ids"]
+        elif isinstance(user_ids, dict) and "input_ids" in user_ids:
+            user_ids = user_ids["input_ids"]
+        elif hasattr(user_ids, "ids"):
+            user_ids = user_ids.ids
+        if isinstance(user_ids, list) and len(user_ids) > 0 and isinstance(user_ids[0], list):
+            user_ids = user_ids[0]
+        user_ids = torch.tensor(user_ids, dtype=torch.long)
 
         # 2. Build full conversation token IDs
         full_conv = [
@@ -224,7 +234,16 @@ class UICOInstructionDataset(Dataset):
         ]
         input_ids = tokenizer.apply_chat_template(
             full_conv, add_generation_prompt=False)
-        input_ids = torch.tensor(input_ids)
+        # Normalize: BatchEncoding/Encoding → flat list
+        if hasattr(input_ids, "data") and "input_ids" in input_ids.data:
+            input_ids = input_ids.data["input_ids"]
+        elif isinstance(input_ids, dict) and "input_ids" in input_ids:
+            input_ids = input_ids["input_ids"]
+        elif hasattr(input_ids, "ids"):
+            input_ids = input_ids.ids
+        if isinstance(input_ids, list) and len(input_ids) > 0 and isinstance(input_ids[0], list):
+            input_ids = input_ids[0]
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
 
         # 3. Process image with CLIP image processor
         img_outputs = image_processor(images=image, return_tensors="pt")

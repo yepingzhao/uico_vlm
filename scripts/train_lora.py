@@ -337,12 +337,22 @@ def train():
                 }]
                 result = processor.apply_chat_template(
                     conv, add_generation_prompt=True)
-                # apply_chat_template returns BatchEncoding (dict) for InternVL2
-                ids_list = (
-                    result["input_ids"] if isinstance(result, dict)
-                    else result
-                )
-                input_ids = torch.tensor([ids_list]).to(config.device)
+                # InternVL's apply_chat_template returns BatchEncoding.
+                # result["input_ids"] may return a BatchEncoding wrapper
+                # (not raw data) in some AutoProcessor versions — use
+                # .data[] for the raw list[int].
+                if hasattr(result, "data") and "input_ids" in result.data:
+                    ids_list = result.data["input_ids"]
+                elif isinstance(result, dict) and "input_ids" in result:
+                    ids_list = result["input_ids"]
+                elif hasattr(result, "ids"):
+                    ids_list = result.ids
+                else:
+                    ids_list = result
+                # Normalize: may be nested [[ids]] or flat [ids]
+                if isinstance(ids_list, list) and len(ids_list) > 0 and isinstance(ids_list[0], list):
+                    ids_list = ids_list[0]
+                input_ids = torch.tensor([ids_list], dtype=torch.long).to(config.device)
                 attention_mask = torch.ones_like(input_ids)
                 img_outputs = image_processor(
                     images=image, return_tensors="pt")

@@ -39,6 +39,18 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
     if model_kwargs:
         extra.update(model_kwargs)
 
+    # Fix: some custom-model VLMs (InternVL3, InternVL3.5) lack
+    # all_tied_weights_keys, which bitsandbytes 4-bit quantization
+    # accesses during model loading. Patch transformers internals
+    # to provide a fallback instead of crashing.
+    import transformers.quantizers.base as _qbase
+    _orig_get_keys = _qbase.get_keys_to_not_convert
+    def _safe_get_keys(model):
+        if not hasattr(model, "all_tied_weights_keys"):
+            model.all_tied_weights_keys = {}
+        return _orig_get_keys(model)
+    _qbase.get_keys_to_not_convert = _safe_get_keys
+
     base_model = model_class.from_pretrained(
         model_id,
         quantization_config=bnb_config,
