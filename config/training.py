@@ -85,9 +85,9 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         # Phi-3.5 uses combined projections: qkv_proj + gate_up_proj
         "target_modules": ("qkv_proj", "o_proj", "gate_up_proj", "down_proj"),
         "trust_remote_code": True,
-        # Phi-3.5 config defaults to flash_attention_2; use eager to avoid
-        # requiring flash_attn package that may not be installed.
-        "model_kwargs": {"attn_implementation": "eager"},
+        # Phi-3.5 config defaults to flash_attention_2; config.json patched to
+        # sdpa on disk. Use local_files_only to avoid network hangs.
+        "model_kwargs": {"local_files_only": True},
     },
     "internvl2": {
         "model_id": "OpenGVLab/InternVL2-8B",
@@ -96,6 +96,7 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         # InternLM2 backbone uses non-standard naming
         "target_modules": ("wqkv", "wo", "w1", "w2", "w3"),
         "trust_remote_code": True,
+        "model_kwargs": {"local_files_only": True},
     },
 }
 
