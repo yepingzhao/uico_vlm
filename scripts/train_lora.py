@@ -160,6 +160,13 @@ def train():
             min_pixels=128 * 28 * 28,
             max_pixels=256 * 28 * 28,
         )
+    elif args.model == "qwen3vl":
+        # Same low-res strategy as Qwen2VL: Qwen3-VL dynamic resolution
+        # can produce large feature maps → OOM risk on 24GB with QLoRA 4-bit
+        processor_kwargs = dict(
+            min_pixels=128 * 28 * 28,
+            max_pixels=256 * 28 * 28,
+        )
     elif args.model == "llava-next":
         # Lower resolution for LLaVA-NeXT dynamic high resolution to fit 24GB
         # Default size={336,672} → 5 patches → OOM on 24GB with QLoRA 4-bit
@@ -167,10 +174,15 @@ def train():
             size={"shortest_edge": 168, "longest_edge": 336},
         )
     if not is_internvl2:
+        # Forward local_files_only from model_kwargs to processor (offline env)
+        proc_extra = {}
+        if model_cfg.get("model_kwargs", {}).get("local_files_only"):
+            proc_extra["local_files_only"] = True
         processor = processor_class.from_pretrained(
             config.model_id,
             trust_remote_code=model_cfg.get("trust_remote_code", False),
             **processor_kwargs,
+            **proc_extra,
         )
     if is_phi35:
         # Phi3VProcessor has no chat_template attribute (it lives on the
@@ -349,6 +361,13 @@ def train():
                 # Phi-3.5: string content with <|image_1|> tag, processor
                 # handles image+text via __call__. Chat template accessible
                 # because we copied it from tokenizer to processor.
+                #
+                # The vendored modeling_phi3_v.py calls
+                # past_key_values.get_max_length() which does not exist on
+                # DynamicCache in transformers >= 4.49. Monkey-patch it.
+                from transformers.cache_utils import DynamicCache
+                if not hasattr(DynamicCache, "get_max_length"):
+                    DynamicCache.get_max_length = lambda self: None
                 conv = [{
                     "role": "user",
                     "content": f"<|image_1|>\n{PROMPT_A}",

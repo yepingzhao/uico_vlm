@@ -98,6 +98,15 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "trust_remote_code": True,
         "model_kwargs": {"local_files_only": True},
     },
+    "qwen3vl": {
+        "model_id": "Qwen/Qwen3-VL-8B-Instruct",
+        "model_class_name": "Qwen3VLForConditionalGeneration",
+        "processor_class_name": "AutoProcessor",
+        # Same attention-only strategy as Qwen2VL (4 modules) — avoids NaN
+        # risk observed with 7 modules under QLoRA 4-bit on Qwen backbones.
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
+        "model_kwargs": {"local_files_only": True},
+    },
 }
 
 
