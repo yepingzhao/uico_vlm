@@ -128,8 +128,13 @@ if __name__ == "__main__":
         if m:
             all_metrics[f"{model_name}/{prompt_key}"] = m
 
-    # Save global summary
-    summary_file = os.path.join(OUTPUT_DIR, "all_metrics.json")
+    # Save global summary — merge with existing to support incremental runs
+    summary_file = os.path.join(OUTPUT_DIR, "zeroshot_all_metrics.json")
+    existing = {}
+    if os.path.exists(summary_file):
+        with open(summary_file, "r") as f:
+            existing = json.load(f)
+    existing.update(all_metrics)
     with open(summary_file, "w") as f:
-        json.dump(all_metrics, f, indent=2)
+        json.dump(existing, f, indent=2)
     print(f"\n[Summary] → {summary_file}")

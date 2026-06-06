@@ -160,7 +160,7 @@ python scripts/inference_lora.py --model llava
 python make_table.py
 ```
 
-Generates LaTeX comparison tables from `outputs/all_metrics.json`, comparing VLM results against paper baselines with bold-for-best formatting.
+Generates LaTeX comparison tables from `outputs/zeroshot_all_metrics.json`, comparing VLM results against paper baselines with bold-for-best formatting.
 
 ## Prompt Variants
 
@@ -202,7 +202,7 @@ outputs/
 │   ├── predictions_fewshot_k3.jsonl        # few-shot (k=3)
 │   ├── metrics_prompt_a.json               # per-prompt evaluation
 │   └── ...
-├── all_metrics.json                        # aggregate zero-shot results
+├── zeroshot_all_metrics.json                # aggregate zero-shot results
 ├── fewshot_all_metrics.json                # aggregate few-shot results
 ├── fewshot_cache/                          # cached few-shot example selections
 ├── {model}-lora/                            # QLoRA adapter weights

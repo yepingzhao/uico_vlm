@@ -85,6 +85,9 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         # Phi-3.5 uses combined projections: qkv_proj + gate_up_proj
         "target_modules": ("qkv_proj", "o_proj", "gate_up_proj", "down_proj"),
         "trust_remote_code": True,
+        # Phi-3.5 config defaults to flash_attention_2; use eager to avoid
+        # requiring flash_attn package that may not be installed.
+        "model_kwargs": {"attn_implementation": "eager"},
     },
     "internvl2": {
         "model_id": "OpenGVLab/InternVL2-8B",

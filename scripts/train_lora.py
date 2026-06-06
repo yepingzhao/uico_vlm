@@ -130,7 +130,8 @@ def train():
     )
     model = load_qlora_model(model_class, config.model_id, lora_config,
                               config.device,
-                              trust_remote_code=model_cfg.get("trust_remote_code", False))
+                              trust_remote_code=model_cfg.get("trust_remote_code", False),
+                              model_kwargs=model_cfg.get("model_kwargs"))
     model.print_trainable_parameters()
     print(f"[Load] Done in {time.time() - t0:.1f}s")
 
@@ -151,7 +152,9 @@ def train():
             size={"shortest_edge": 168, "longest_edge": 336},
         )
     processor = processor_class.from_pretrained(
-        config.model_id, **processor_kwargs,
+        config.model_id,
+        trust_remote_code=model_cfg.get("trust_remote_code", False),
+        **processor_kwargs,
     )
 
     train_ds = UICOInstructionDataset(

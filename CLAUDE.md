@@ -135,7 +135,7 @@ QLoRA fine-tuning with multi-model support:
 
 ### Table Generation (`make_table.py`)
 
-**Note:** This script is referenced in the paper workflow but does not yet exist in the repository. It is planned to generate LaTeX comparison tables from `outputs/all_metrics.json`.
+**Note:** This script is referenced in the paper workflow but does not yet exist in the repository. It is planned to generate LaTeX comparison tables from `outputs/zeroshot_all_metrics.json`.
 
 ### Research Notes (`docs/research-notes/`)
 
@@ -196,7 +196,7 @@ outputs/
     predictions_fewshot_k{1,3,5}.jsonl        # few-shot
     metrics_prompt_{a,b,c}.json               # per-prompt eval
     metrics_fewshot_k{1,3,5}.json             # per-k few-shot eval
-  all_metrics.json                            # aggregate zero-shot results
+  zeroshot_all_metrics.json                    # aggregate zero-shot results
   fewshot_all_metrics.json                    # aggregate few-shot results
   fewshot_cache/                              # cached few-shot example selections
   {model}-lora/                               # QLoRA adapter weights

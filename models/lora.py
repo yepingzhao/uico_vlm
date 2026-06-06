@@ -20,7 +20,8 @@ def make_lora_config(r: int = 8, alpha: int = 16, dropout: float = 0.05,
 
 
 def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
-                     device: str = "cuda:0", trust_remote_code: bool = False):
+                     device: str = "cuda:0", trust_remote_code: bool = False,
+                     model_kwargs: dict = None):
     """Load 4-bit quantized base model with LoRA adapters for training.
 
     Returns the PEFT-wrapped model.
@@ -32,12 +33,16 @@ def load_qlora_model(model_class, model_id: str, lora_config: LoraConfig,
         bnb_4bit_use_double_quant=True,
     )
 
+    extra = dict(trust_remote_code=trust_remote_code)
+    if model_kwargs:
+        extra.update(model_kwargs)
+
     base_model = model_class.from_pretrained(
         model_id,
         quantization_config=bnb_config,
         device_map=device,
         torch_dtype=torch.bfloat16,
-        trust_remote_code=trust_remote_code,
+        **extra,
     )
     model = get_peft_model(base_model, lora_config)
     model.config.use_cache = False
