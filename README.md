@@ -84,20 +84,20 @@ Uses `hf-mirror.com` by default (set `HF_ENDPOINT` to override).
 
 ```bash
 # Phase 1 (dev): 1000 images, 2 lightweight models
-python scripts/run_inference.py --models blip2 llava --subsample 1000 --prompt A
+python scripts/run_inference.py --mode zeroshot --models blip2 llava --subsample 1000 --prompt A
 
 # Phase 2 (full): all images, all models
-python scripts/run_inference.py --models blip2 instructblip llava internvl2 qwen2vl --prompt A
+python scripts/run_inference.py --mode zeroshot --models blip2 instructblip llava internvl2 qwen2vl --prompt A
 
 # Sensitivity analysis: prompt variants B/C on LLaVA + Qwen2.5-VL
-python scripts/run_inference.py --models llava qwen2vl --prompt B
-python scripts/run_inference.py --models llava qwen2vl --prompt C
+python scripts/run_inference.py --mode zeroshot --models llava qwen2vl --prompt B
+python scripts/run_inference.py --mode zeroshot --models llava qwen2vl --prompt C
 
 # Chinese prompt (Qwen2.5-VL only)
-python scripts/run_inference.py --models qwen2vl --prompt ZH
+python scripts/run_inference.py --mode zeroshot --models qwen2vl --prompt ZH
 
 # vLLM backend: faster inference
-python scripts/run_inference.py --models llava-vllm qwen2vl-vllm --prompt A
+python scripts/run_inference.py --mode zeroshot --models llava-vllm qwen2vl-vllm --prompt A
 ```
 
 Supports checkpoint/resume — interrupted runs pick up where they left off.
@@ -119,13 +119,13 @@ python scripts/run_eval.py --all
 
 ```bash
 # Quick test: 3 images, k=1
-python scripts/run_fewshot.py --models llava --k 1 --subsample 3
+python scripts/run_inference.py --mode fewshot --models llava --k 1 --subsample 3
 
 # Dev run: 500 images, k=1,3,5
-python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5 --subsample 500
+python scripts/run_inference.py --mode fewshot --models llava qwen2vl --k 1 3 5 --subsample 500
 
 # Full run
-python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5
+python scripts/run_inference.py --mode fewshot --models llava qwen2vl --k 1 3 5
 
 # Evaluate few-shot results
 python scripts/eval_fewshot.py --model llava --k 1
