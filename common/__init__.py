@@ -7,5 +7,5 @@ Modules:
   - strategies: GenerationStrategy ABC and concrete implementations
   - training: TrainingRunner QLoRA fine-tuning loop
   - training_adapter: TrainingModelAdapter ABC + per-model-family adapters
-  - eval_core: shared evaluation functions
+  - evaluator: evaluation metrics and orchestration (load, compute, save)
 """
