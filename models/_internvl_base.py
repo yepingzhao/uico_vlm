@@ -147,6 +147,7 @@ class InternVLBase(VLMWrapper):
             trust_remote_code=True,
             device_map=device,
             low_cpu_mem_usage=True,
+            local_files_only=True,
         )
         self._model.eval()
 

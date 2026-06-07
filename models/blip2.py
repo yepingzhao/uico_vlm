@@ -16,9 +16,9 @@ class BLIP2Wrapper(VLMWrapper):
     def load(self, device: str = "cuda:0"):
         self._device = device
         model_id = "Salesforce/blip2-flan-t5-xl"
-        self._processor = Blip2Processor.from_pretrained(model_id)
+        self._processor = Blip2Processor.from_pretrained(model_id, local_files_only=True)
         self._model = Blip2ForConditionalGeneration.from_pretrained(
-            model_id, torch_dtype=torch.float16
+            model_id, torch_dtype=torch.float16, local_files_only=True,
         ).to(device)
         self._model.eval()
 

@@ -1,6 +1,19 @@
 """Central configuration for VLM evaluation pipeline."""
 
 import os
+from pathlib import Path
+
+# --- Load .env if present ---
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+if _env_file.exists():
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _key, _sep, _val = _line.partition("=")
+                _key, _val = _key.strip(), _val.strip().strip("'\"")
+                if _key not in os.environ:
+                    os.environ[_key] = _val
 
 from config.models import MODEL_REGISTRY, SENSITIVITY_MODELS  # noqa: F401 — re-exported for backward compatibility
 
