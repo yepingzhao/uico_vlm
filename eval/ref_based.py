@@ -1,7 +1,7 @@
 """Reference-based evaluation metrics using the coco-caption library.
 
 Computes BLEU-1/4, METEOR, ROUGE-L, CIDEr-D, and SPICE,
-plus the composite S_m score defined in the paper Eq.(1).
+plus the composite S_m score (paper Eq.1) and S*_m (zhang2021global).
 """
 
 import json
@@ -47,7 +47,7 @@ def compute_ref_based_metrics(
         cache_dir: Optional directory for caching intermediate files.
 
     Returns:
-        Dict with keys: BLEU-1, BLEU-4, METEOR, ROUGE_L, CIDEr, SPICE, S_m
+        Dict with keys: BLEU-1, BLEU-4, METEOR, ROUGE_L, CIDEr, SPICE, S_m, S*_m
     """
     # Write predictions and references to temporary COCO-format JSON
     tmpdir = tempfile.mkdtemp(prefix="uico_vlm_eval_")
@@ -109,6 +109,10 @@ def compute_ref_based_metrics(
         # Compute S_m (composite) per paper Eq.(1)
         sm_keys = ["BLEU_4", "METEOR", "ROUGE_L", "CIDER", "SPICE"]
         metrics["S_m"] = sum(metrics.get(k, 0.0) for k in sm_keys) / len(sm_keys)
+
+        # Compute S*_m (SPICE-excluded composite) per zhang2021global
+        sm_star_keys = ["BLEU_4", "METEOR", "ROUGE_L", "CIDER"]
+        metrics["S*_m"] = sum(metrics.get(k, 0.0) for k in sm_star_keys) / len(sm_star_keys)
 
         return metrics
 
