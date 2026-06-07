@@ -11,8 +11,8 @@ import os
 import sys
 import time
 
-from common.checkpoint import load_checkpoint
-from common.strategies import GenerationStrategy
+from core.inference.checkpoint import load_checkpoint
+from core.inference.strategies import GenerationStrategy
 
 
 class InferenceRunner:
