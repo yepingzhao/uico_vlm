@@ -92,10 +92,6 @@ python scripts/run_inference.py --mode zeroshot --models blip2 instructblip llav
 # Sensitivity analysis: prompt variants B/C on LLaVA + Qwen2.5-VL
 python scripts/run_inference.py --mode zeroshot --models llava qwen2vl --prompt B
 python scripts/run_inference.py --mode zeroshot --models llava qwen2vl --prompt C
-
-# Chinese prompt (Qwen2.5-VL only)
-python scripts/run_inference.py --mode zeroshot --models qwen2vl --prompt ZH
-
 # vLLM backend: faster inference
 python scripts/run_inference.py --mode zeroshot --models llava-vllm qwen2vl-vllm --prompt A
 ```
@@ -227,7 +223,7 @@ Edit `config.py` for:
 
 - `models/` — VLM wrappers with `models/lora.py` providing shared QLoRA utilities
 - `data/` — COCO dataset loader with `data/training_dataset.py` for instruction fine-tuning
-- `prompts/` — prompt templates (A/B/C/ZH)
+- `config/prompts.py` — prompt templates (A/B/C) and few-shot prompt
 - `eval/` — reference-based metrics (BLEU, METEOR, ROUGE, CIDEr, SPICE) and reference-free metrics (CLIPScore, RefCLIPScore)
 - `fewshot/` — static-example few-shot sampler with disk caching
 - `scripts/` — CLI entry points for inference, evaluation, and training
