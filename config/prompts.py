@@ -2,10 +2,12 @@
 
 Prompt design rationale (see docs/research-notes/2026-06-04-prompt-gt-alignment-analysis.md):
 - GT captions are concise (median 9 words), factual, and follow a WHAT+WHERE structure.
-- Prompt A is the primary prompt: open-ended, concise, asks for what+where.
+- Prompt A is the primary prompt: concise what+where, domain priming, negative constraint.
 - Prompt B isolates format sensitivity: same content as A, structured output format.
 - Prompt C isolates content sensitivity: same format as A, adds "why" justification.
 - Each pair (A→B, A→C) varies a single dimension, enabling clean attribution.
+- PROMPT_FEWSHOT is identical to Prompt A, so zero-shot vs few-shot comparison
+  isolates only the effect of examples (no textual difference in the prompt).
 - IMPORTANT: B and C are evaluated with ref-free metrics ONLY (CLIPScore, RefCLIPScore).
   Their format/content differences mechanically deflate n-gram metrics; comparing
   A/B/C via ref-based metrics would conflate format noise with sensitivity signal.
@@ -14,8 +16,10 @@ Prompt design rationale (see docs/research-notes/2026-06-04-prompt-gt-alignment-
 # --- Primary prompt ---
 # Prompt A: concise what+where description (primary, used for all models)
 PROMPT_A = (
-    "In one sentence, describe any violation of urban order visible in "
-    "this image. State what the problem is and where it is located."
+    "Describe any violation of urban order visible in this image "
+    "in one short sentence. State what is wrong "
+    "(e.g., illegal parking, garbage, clutter, damaged infrastructure) "
+    "and where it is located. Do not explain why or analyze the situation."
 )
 
 # --- Sensitivity analysis prompts ---
@@ -34,11 +38,9 @@ PROMPT_C = (
 )
 
 # --- Few-shot prompt ---
-# Placed after example images; aligned with Prompt A style
-PROMPT_FEWSHOT = (
-    "Now describe any violation of urban order visible in the image above "
-    "in one sentence. State what the problem is and where it is located."
-)
+# Identical to Prompt A — zero-shot vs few-shot comparison isolates only the
+# effect of examples, with no textual difference in the prompt itself.
+PROMPT_FEWSHOT = PROMPT_A  # noqa — alias for semantic clarity in code
 
 # Mapping for config
 PROMPT_MAP = {
