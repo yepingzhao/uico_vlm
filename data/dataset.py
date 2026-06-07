@@ -7,6 +7,8 @@ from typing import List, Dict
 
 from pycocotools.coco import COCO
 
+from config import TEST_ANN_FILE, IMAGES_BASE_DIR
+
 
 # Image files are split across subdirectories by prefix:
 #   CCMC_train_NNN.jpg → ccmc_train/
@@ -79,7 +81,6 @@ class UICOTestDataset:
 
 def load_test_dataset(subsample: int = 0, seed: int = 42) -> UICOTestDataset:
     """Convenience: load the full test set, optionally subsample."""
-    from config import TEST_ANN_FILE, IMAGES_BASE_DIR
     ds = UICOTestDataset(TEST_ANN_FILE, IMAGES_BASE_DIR)
     if subsample > 0:
         ds = ds.subsample(subsample, seed)
