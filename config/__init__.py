@@ -30,6 +30,7 @@ MODEL_REGISTRY = [
     ("llava-next",      "llava-hf/llava-v1.6-mistral-7b-hf",      "LLaVANeXTWrapper"),
     ("idefics3",        "HuggingFaceM4/Idefics3-8B-Llama3",       "Idefics3Wrapper"),
     ("internvl25",      "OpenGVLab/InternVL2_5-8B",               "InternVL25Wrapper"),
+    ("internvl35",      "OpenGVLab/InternVL3_5-8B",              "InternVL35Wrapper"),
     ("pixtral",         "mistralai/Pixtral-12B-2409",             "PixtralWrapper"),
     ("llama32-vision",  "meta-llama/Llama-3.2-11B-Vision-Instruct","Llama32VisionWrapper"),
     ("qwen3vl",         "Qwen/Qwen3-VL-8B-Instruct",               "Qwen3VLWrapper"),

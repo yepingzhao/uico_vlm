@@ -25,6 +25,7 @@ def get_wrapper(name: str):
     from models.minicpm_v import MiniCPMVWrapper
     from models.llava_next import LLaVANeXTWrapper
     from models.internvl25 import InternVL25Wrapper
+    from models.internvl35 import InternVL35Wrapper
     from models.pixtral import PixtralWrapper
     from models.llama32_vision import Llama32VisionWrapper
 
@@ -41,6 +42,7 @@ def get_wrapper(name: str):
         "minicpm-v": MiniCPMVWrapper,
         "llava-next": LLaVANeXTWrapper,
         "internvl25": InternVL25Wrapper,
+        "internvl35": InternVL35Wrapper,
         "pixtral": PixtralWrapper,
         "llama32-vision": Llama32VisionWrapper,
     }

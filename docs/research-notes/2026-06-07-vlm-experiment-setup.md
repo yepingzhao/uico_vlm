@@ -15,9 +15,9 @@
 | `llava` | `llava-hf/llava-1.5-7b-hf` | 7B | 经典 baseline | ✅ | ✅ | ✅ |
 | `instructblip` | `Salesforce/instructblip-vicuna-7b` | 7B | 弱对照组 | ✅ | — | — |
 | `qwen3vl` | `Qwen/Qwen3-VL-8B-Instruct` | 8B | 最新 Qwen 代 | ✅ | ✅ | ✅ |
-| `internvl3` | `OpenGVLab/InternVL3-8B` | 8B | 最新 InternVL 代 | ✅ | — | — |
+| `internvl35` | `OpenGVLab/InternVL3_5-8B` | 8B | 最新 InternVL 代 | ✅ | — | — |
 
-> 已从原计划移除: `qwen2vl`, `internvl2`。旧模型结果如已有，保留在 supplementary 中作为代际进步分析。
+> 已从原计划移除: `qwen2vl`, `internvl2`, `internvl3`。旧模型结果如已有，保留在 supplementary 中作为代际进步分析。
 
 ---
 
@@ -38,7 +38,7 @@ TEST_IMAGES     = 3500 (全量) / 500 (prompt sensitivity) / 100 (dev mode)
 | Few-Shot | `128*28*28` | `256*28*28` |
 | LoRA Training | `128*28*28` | `256*28*28` |
 
-### InternVL3 Processor
+### InternVL3.5 Processor
 
 ```
 CLIPImageProcessor(size=448, crop_size=448)  -- 复用 _internvl_base.py
@@ -109,16 +109,16 @@ vision_encoder = frozen
 
 ```bash
 # 1. 创建 InternVL3 wrapper（继承 InternVLBase）
-#    文件: models/internvl3.py
-#    在 models/__init__.py 注册 "internvl3"
-#    在 config/__init__.py MODEL_REGISTRY 添加 internvl3 entry
+#    文件: models/internvl35.py
+#    在 models/__init__.py 注册 "internvl35"
+#    在 config/__init__.py MODEL_REGISTRY 添加 internvl35 entry
 
 # 2. 验证新模型下载
 python download_models.py --model qwen3vl --dry-run
 
 # 3. 快速验证两个新模型推理
 python scripts/run_inference.py --models qwen3vl --subsample 5 --prompt A
-python scripts/run_inference.py --models internvl3 --subsample 5 --prompt A
+python scripts/run_inference.py --models internvl35 --subsample 5 --prompt A
 ```
 
 ### Phase 1 — 速查
@@ -132,7 +132,7 @@ python scripts/run_eval.py --model llava --prompt A
 
 ```bash
 python scripts/run_inference.py \
-  --models instructblip llava qwen3vl internvl3 \
+  --models instructblip llava qwen3vl internvl35 \
   --prompt A --subsample 3500
 
 python scripts/run_eval.py --all --prompt A
@@ -202,7 +202,7 @@ outputs/
     predictions_prompt_b.jsonl, predictions_prompt_c.jsonl
     predictions_fewshot_k1.jsonl, predictions_fewshot_k3.jsonl
     metrics_prompt_a.json, ...
-  internvl3/
+  internvl35/
     predictions_prompt_a.jsonl
     metrics_prompt_a.json
   llava-lora/
@@ -262,9 +262,9 @@ InternVL3-8B       | 2025 | 62.7           |  —                | InternVL3 −
 
 ```
 □ Phase 0: 补齐工程
-  □ 创建 models/internvl3.py wrapper（继承 InternVLBase）
-  □ 在 models/__init__.py 注册 "internvl3"
-  □ 在 config/__init__.py MODEL_REGISTRY 添加 internvl3
+  □ 创建 models/internvl35.py wrapper（继承 InternVLBase）
+  □ 在 models/__init__.py 注册 "internvl35"
+  □ 在 config/__init__.py MODEL_REGISTRY 添加 internvl35
   □ 确认 Qwen3-VL-8B 和 InternVL3-8B 模型已下载
   □ 验证两个新模型 ZS 推理（--subsample 5）
 
@@ -272,7 +272,7 @@ InternVL3-8B       | 2025 | 62.7           |  —                | InternVL3 −
   □ 推理 + 评估 → 确认 VLM 能力基线
 
 □ Phase 2: ZS 全覆盖
-  □ instructblip + llava + qwen3vl + internvl3 × Prompt A × 3500
+  □ instructblip + llava + qwen3vl + internvl35 × Prompt A × 3500
   □ 评估 ref_based + ref_free
 
 □ Phase 3: Few-Shot
