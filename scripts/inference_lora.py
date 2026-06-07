@@ -26,6 +26,12 @@ from models.lora import load_qlora_for_inference
 from models.utils import load_checkpoint
 from prompts.templates import PROMPT_A
 
+# InternVL image token constants (matching data/training_dataset.py)
+_INTERNVL_IMG_START = "<img>"
+_INTERNVL_IMG_END = "</img>"
+_INTERNVL_IMG_CONTEXT = "<IMG_CONTEXT>"
+_INTERNVL_NUM_IMAGE_TOKENS = 256
+
 
 def _import_class(class_name: str):
     """Import a HuggingFace class by name."""
@@ -61,6 +67,39 @@ def main():
     )
     print(f"[Load] Done in {time.time() - t0:.1f}s")
 
+    is_internvl = args.model in ("internvl2", "internvl3", "internvl35")
+
+    # InternVL: processor from load_qlora_for_inference may be an
+    # AutoProcessor that tries to use InternVLProcessor (broken for
+    # InternVL3.5's TokenizersBackend). Replace with tokenizer+image_processor.
+    image_processor = None
+    if is_internvl:
+        from transformers import AutoImageProcessor
+        if args.model == "internvl35":
+            from transformers import AutoTokenizer
+            processor = AutoTokenizer.from_pretrained(
+                model_id,
+                trust_remote_code=model_cfg.get("trust_remote_code", False),
+                local_files_only=True,
+            )
+        image_processor = AutoImageProcessor.from_pretrained(
+            model_id,
+            trust_remote_code=model_cfg.get("trust_remote_code", False),
+            local_files_only=True,
+        )
+        # single-patch mode for stability
+        if args.model == "internvl35":
+            image_processor.max_patches = 1
+        # Set img_context_token_id on the inner model for generate()
+        from transformers import AutoModel
+        _img_ctx = processor.convert_tokens_to_ids("<IMG_CONTEXT>")
+        _inner = model
+        for _step in ("base_model", "model"):
+            _inner = getattr(_inner, _step, _inner)
+        if hasattr(_inner, "img_context_token_id"):
+            _inner.img_context_token_id = _img_ctx
+            print(f"[InternVL] img_context_token_id={_img_ctx}")
+
     # ── Load test data ──
     ds = load_test_dataset(subsample=0, seed=RANDOM_SEED)
     print(f"[Data] {len(ds)} test images")
@@ -82,25 +121,75 @@ def main():
             img_path = ds.get_image_path(img_id)
             image = Image.open(img_path).convert("RGB")
 
-            conv = [{
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": user_prompt},
-                ],
-            }]
-            prompt = processor.apply_chat_template(
-                conv, add_generation_prompt=True)
-            inputs = processor(
-                images=image, text=prompt, return_tensors="pt"
-            ).to(args.device, torch.bfloat16)
+            if is_internvl:
+                # InternVL: plain-string chat template with IMG_CONTEXT expansion.
+                # The tokenizer (processor) handles text; image_processor handles
+                # pixel_values. Generate takes them as separate kwargs.
+                img_tokens = (
+                    f"{_INTERNVL_IMG_START}"
+                    f"{_INTERNVL_IMG_CONTEXT * _INTERNVL_NUM_IMAGE_TOKENS}"
+                    f"{_INTERNVL_IMG_END}"
+                )
+                conv = [{
+                    "role": "user",
+                    "content": f"{img_tokens}\n{user_prompt}",
+                }]
+                result = processor.apply_chat_template(
+                    conv, add_generation_prompt=True)
+                # Normalize: BatchEncoding → list
+                if hasattr(result, "data") and "input_ids" in result.data:
+                    ids_list = result.data["input_ids"]
+                elif isinstance(result, dict) and "input_ids" in result:
+                    ids_list = result["input_ids"]
+                elif hasattr(result, "ids"):
+                    ids_list = result.ids
+                else:
+                    ids_list = result
+                if isinstance(ids_list, list) and len(ids_list) > 0 and \
+                        isinstance(ids_list[0], list):
+                    ids_list = ids_list[0]
+                input_ids = torch.tensor(
+                    [ids_list], dtype=torch.long).to(args.device)
+                attention_mask = torch.ones_like(input_ids)
+                img_outputs = image_processor(
+                    images=image, return_tensors="pt")
+                pixel_values = img_outputs["pixel_values"].to(
+                    args.device, torch.bfloat16)
+                input_len = input_ids.shape[1]
+                with torch.no_grad():
+                    output_ids = model.generate(
+                        pixel_values=pixel_values,
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        max_new_tokens=MAX_NEW_TOKENS,
+                        do_sample=False,
+                    )
+                # InternVL.generate() passes inputs_embeds to the language
+                # model, so output_ids contains ONLY generated tokens (no
+                # input prepended). Standard models prepend input tokens.
+                generated = output_ids
+                caption = processor.decode(
+                    generated[0], skip_special_tokens=True).strip()
+            else:
+                conv = [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": user_prompt},
+                    ],
+                }]
+                prompt = processor.apply_chat_template(
+                    conv, add_generation_prompt=True)
+                inputs = processor(
+                    images=image, text=prompt, return_tensors="pt"
+                ).to(args.device, torch.bfloat16)
 
-            with torch.no_grad():
-                output_ids = model.generate(
-                    **inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
-            generated = output_ids[:, inputs["input_ids"].shape[1]:]
-            caption = processor.decode(
-                generated[0], skip_special_tokens=True).strip()
+                with torch.no_grad():
+                    output_ids = model.generate(
+                        **inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
+                generated = output_ids[:, inputs["input_ids"].shape[1]:]
+                caption = processor.decode(
+                    generated[0], skip_special_tokens=True).strip()
 
             record = {
                 "image_id": img_id,

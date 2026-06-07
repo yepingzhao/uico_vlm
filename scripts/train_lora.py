@@ -148,21 +148,28 @@ def train():
         # tokenizer directly and bypass InternVLProcessor entirely.
         # We load the image processor separately and attach it for use in the
         # training dataset.
+        # Forward local_files_only for offline env
+        _internvl_extra = {}
+        if model_cfg.get("model_kwargs", {}).get("local_files_only"):
+            _internvl_extra["local_files_only"] = True
         if args.model == "internvl35":
             from transformers import AutoTokenizer as _Tok
             processor = _Tok.from_pretrained(
                 config.model_id,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
+                **_internvl_extra,
             )
         else:
             processor = processor_class.from_pretrained(
                 config.model_id,
                 trust_remote_code=model_cfg.get("trust_remote_code", False),
+                **_internvl_extra,
             )
         from transformers import AutoImageProcessor
         image_processor = AutoImageProcessor.from_pretrained(
             config.model_id,
             trust_remote_code=model_cfg.get("trust_remote_code", False),
+            **_internvl_extra,
         )
         # InternVL3.5: force single-patch mode for training stability.
         # Dynamic patches produce variable-length IMG_CONTEXT (256-3072 tokens)
