@@ -2,8 +2,10 @@
 
 Modules:
   - checkpoint: prediction file checkpoint/resume helpers
-  - dataset_bundle: lightweight dataset wrapper decoupled from scripts
+
   - pipeline: InferenceRunner orchestration
   - strategies: GenerationStrategy ABC and concrete implementations
+  - training: TrainingRunner QLoRA fine-tuning loop
+  - training_adapter: TrainingModelAdapter ABC + per-model-family adapters
   - eval_core: shared evaluation functions
 """

@@ -84,3 +84,31 @@ def load_test_dataset(subsample: int = 0, seed: int = 42) -> UICOTestDataset:
     if subsample > 0:
         ds = ds.subsample(subsample, seed)
     return ds
+
+
+class DatasetBundle:
+    """Lightweight wrapper holding image IDs and their filesystem paths.
+
+    Every inference script repeated the same pattern:
+        ds = load_test_dataset(subsample=..., seed=...)
+        image_paths = {img_id: ds.get_image_path(img_id) for img_id in ds.image_ids}
+
+    DatasetBundle captures this in one place, decoupling scripts from
+    the COCO API — InferenceRunner only needs image_ids (iteration order)
+    and image_paths (passing paths to the strategy).
+
+    Created from a UICOTestDataset via from_dataset().
+    """
+
+    def __init__(self, image_ids: list, image_paths: Dict[int, str]):
+        self.image_ids = image_ids
+        self.image_paths = image_paths
+
+    def __len__(self) -> int:
+        return len(self.image_ids)
+
+    @classmethod
+    def from_dataset(cls, ds):
+        """Build a DatasetBundle from a UICOTestDataset instance."""
+        image_paths = {img_id: ds.get_image_path(img_id) for img_id in ds.image_ids}
+        return cls(image_ids=list(ds.image_ids), image_paths=image_paths)

@@ -94,7 +94,7 @@ class StandardAdapter(TrainingModelAdapter):
     calls ``model(**kwargs)`` for both training and validation.
     """
 
-    def __init__(self, processor_kwargs: dict = None):
+    def __init__(self, processor_kwargs: dict | None = None):
         self._processor_kwargs = processor_kwargs or {}
 
     def load_processor(self, model_id: str, model_cfg: dict) -> dict:
@@ -301,6 +301,14 @@ class InternVLAdapter(TrainingModelAdapter):
 #  Phi-3.5-Vision
 # ═══════════════════════════════════════════════════════════════════════
 
+# Phi-3.5-Vision + transformers >= 4.49: DynamicCache.get_max_length()
+# is called by the vendored modeling_phi3_v.py but does not exist on
+# the upstream class.  Patch once at import time.
+from transformers.cache_utils import DynamicCache
+if not hasattr(DynamicCache, "get_max_length"):
+    DynamicCache.get_max_length = lambda self: None
+
+
 class Phi35Adapter(TrainingModelAdapter):
     """Phi-3.5-Vision adapter.
 
@@ -331,11 +339,6 @@ class Phi35Adapter(TrainingModelAdapter):
         self, model, processor, image_processor,
         image: Image.Image, prompt: str, device: str,
     ) -> str:
-        # Monkey-patch DynamicCache for transformers >= 4.49 compat
-        from transformers.cache_utils import DynamicCache
-        if not hasattr(DynamicCache, "get_max_length"):
-            DynamicCache.get_max_length = lambda self: None
-
         conv = [{"role": "user", "content": f"<|image_1|>\n{prompt}"}]
         text_prompt = processor.apply_chat_template(
             conv, add_generation_prompt=True)
