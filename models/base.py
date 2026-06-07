@@ -12,6 +12,9 @@ class VLMWrapper(ABC):
         self._model = None
         self._processor = None
         self._device = "cuda:0"
+        # Separate image processor for wrappers that don't use unified
+        # processor (InternVL family).
+        self._image_processor = None
 
     @abstractmethod
     def load(self, device: str = "cuda:0"):
@@ -60,6 +63,47 @@ class VLMWrapper(ABC):
         generated_ids = output_ids[:, inputs["input_ids"].shape[1]:]
         return proc.decode(generated_ids[0], skip_special_tokens=True).strip()
 
+    # --- LoRA support ---
+
+    _lora_config_key: str = None
+    """Set in subclasses that support LoRA (key into MODEL_LORA_CONFIGS)."""
+
+    @property
+    def supports_lora(self) -> bool:
+        """True if this wrapper can load LoRA adapters for inference."""
+        return self._lora_config_key is not None
+
+    def load_lora(self, lora_dir: str, device: str = "cuda:0"):
+        """Load 4-bit quantized base model + LoRA adapters for inference.
+
+        Default implementation uses load_qlora_for_inference from models/lora.py.
+        Wrappers with special processor requirements (InternVL family) override
+        this method.
+
+        After loading, self._model is a PeftModel and the existing generate()
+        method works unchanged for standard models.
+        """
+        from config.training import get_lora_config
+        from models.lora import load_qlora_for_inference
+
+        cfg = get_lora_config(self._lora_config_key)
+        model_id = cfg["model_id"]
+        class_name = cfg["model_class_name"]
+        trust_remote_code = cfg.get("trust_remote_code", False)
+        model_kwargs = cfg.get("model_kwargs")
+
+        # Resolve model class (all MODEL_LORA_CONFIGS entries use classes
+        # that exist in transformers, so hasattr is always True)
+        import transformers
+        model_class = getattr(transformers, class_name)
+
+        self._model, self._processor = load_qlora_for_inference(
+            model_class, model_id, lora_dir, device,
+            trust_remote_code=trust_remote_code,
+            model_kwargs=model_kwargs,
+        )
+        self._device = device
+
     # --- Few-shot support (Template Method) ---
 
     _fewshot_embed_images: bool = False
@@ -106,7 +150,7 @@ class VLMWrapper(ABC):
         Returns:
             Generated caption string.
         """
-        from fewshot.content import build_fewshot_images_and_content
+        from models.fewshot.content import build_fewshot_images_and_content
 
         all_images, content_blocks = build_fewshot_images_and_content(
             test_image_path, prompt_template, example_images, example_captions,

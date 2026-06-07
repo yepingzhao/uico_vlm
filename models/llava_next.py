@@ -9,6 +9,8 @@ from .base import VLMWrapper
 
 class LLaVANeXTWrapper(VLMWrapper):
 
+    _lora_config_key = "llava-next"
+
     @property
     def model_name(self) -> str:
         return "llava-next"

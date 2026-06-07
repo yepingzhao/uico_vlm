@@ -9,6 +9,8 @@ from .base import VLMWrapper
 
 class Phi35VisionWrapper(VLMWrapper):
 
+    _lora_config_key = "phi35-vision"
+
     @property
     def model_name(self) -> str:
         return "phi35-vision"

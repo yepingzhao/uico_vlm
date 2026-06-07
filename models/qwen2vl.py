@@ -9,6 +9,8 @@ from .base import VLMWrapper
 
 class Qwen2VLWrapper(VLMWrapper):
 
+    _lora_config_key = "qwen2vl"
+
     def __init__(self):
         super().__init__()
         self._fewshot_processor = None

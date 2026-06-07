@@ -10,6 +10,8 @@ from .base import VLMWrapper
 
 class Qwen3VLWrapper(VLMWrapper):
 
+    _lora_config_key = "qwen3vl"
+
     @property
     def model_name(self) -> str:
         return "qwen3vl"

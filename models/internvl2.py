@@ -11,6 +11,7 @@ from .utils import find_snapshot_dir
 class InternVL2Wrapper(InternVLBase):
 
     model_id = "OpenGVLab/InternVL2-8B"
+    _lora_config_key = "internvl2"
 
     @property
     def model_name(self) -> str:

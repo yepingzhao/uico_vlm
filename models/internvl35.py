@@ -18,6 +18,18 @@ from .utils import find_snapshot_dir
 class InternVL35Wrapper(InternVLBase):
 
     model_id = "OpenGVLab/InternVL3_5-8B"
+    _lora_config_key = "internvl35"
+
+    def load_lora(self, lora_dir: str, device: str = "cuda:0"):
+        """Load LoRA with InternVL3.5-specific processor setup.
+
+        InternVL3.5 uses Qwen2Tokenizer (via AutoTokenizer) and needs
+        max_patches=1 for stability under 4-bit quantization.
+        """
+        super().load_lora(lora_dir, device)
+        # single-patch mode for stability with 4-bit model
+        if hasattr(self, '_img_processor') and self._img_processor is not None:
+            self._img_processor.max_patches = 1
 
     @property
     def model_name(self) -> str:

@@ -1,7 +1,6 @@
 """Shared utilities for model wrappers and inference scripts."""
 
 import glob
-import json
 import os
 
 
@@ -28,24 +27,4 @@ def find_snapshot_dir(model_id: str) -> str:
     return dirs[-1]
 
 
-def load_checkpoint(output_path: str) -> set:
-    """Read existing predictions JSONL and return set of processed image_ids.
-
-    Args:
-        output_path: Path to the predictions JSONL file.
-
-    Returns:
-        Set of image_id integers already processed.
-    """
-    processed = set()
-    if os.path.exists(output_path):
-        with open(output_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        record = json.loads(line)
-                        processed.add(record["image_id"])
-                    except (json.JSONDecodeError, KeyError):
-                        continue
-    return processed
+# load_checkpoint moved to common/checkpoint.py (decouple I/O from models/)
