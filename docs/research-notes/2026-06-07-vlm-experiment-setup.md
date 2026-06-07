@@ -15,7 +15,7 @@
 | `llava` | `llava-hf/llava-1.5-7b-hf` | 7B | 经典 baseline | ✅ | ✅ | ✅ |
 | `instructblip` | `Salesforce/instructblip-vicuna-7b` | 7B | 弱对照组 | ✅ | — | — |
 | `qwen3vl` | `Qwen/Qwen3-VL-8B-Instruct` | 8B | 最新 Qwen 代 | ✅ | ✅ | ✅ |
-| `internvl35` | `OpenGVLab/InternVL3_5-8B` | 8B | 最新 InternVL 代 | ✅ | — | — |
+| `internvl35` | `OpenGVLab/InternVL3_5-8B` | 8B | 最新 InternVL 代 | ✅ | ✅ | ✅ |
 
 > 已从原计划移除: `qwen2vl`, `internvl2`, `internvl3`。旧模型结果如已有，保留在 supplementary 中作为代际进步分析。
 
@@ -66,6 +66,7 @@ examples       = 全测试集共用（预采样，固定 seed=42）
 采样策略       = 从训练集随机采样 k 个 image-caption pairs
 cache 路径     = outputs/fewshot_cache/fewshot_examples_k{k}_seed42.json
 embed_images   = qwen3vl: True (inline PIL), llava: False (placeholder)
+  internvl35     = chat() history API（不走 content_blocks 管线）
 ```
 
 ---
@@ -141,7 +142,7 @@ python scripts/run_eval.py --all --prompt A
 ### Phase 3 — Few-Shot
 
 ```bash
-python scripts/run_fewshot.py --models llava qwen3vl --k 1 3 --subsample 3500
+python scripts/run_fewshot.py --models llava qwen3vl internvl35 --k 1 3 --subsample 3500
 python scripts/eval_fewshot.py --all
 ```
 
@@ -166,13 +167,18 @@ python scripts/train_lora.py --model llava --epochs 2 --lr 2e-4
 # Qwen3-VL（首次训练，保守 lr）
 python scripts/train_lora.py --model qwen3vl --epochs 2 --lr 1e-4
 
+# InternVL3.5
+python scripts/train_lora.py --model internvl35 --epochs 2 --lr 1e-4
+
 # 推理
 python scripts/inference_lora.py --model llava
 python scripts/inference_lora.py --model qwen3vl
+python scripts/inference_lora.py --model internvl35
 
 # 评估
 python scripts/run_eval.py --model llava-lora --prompt A
 python scripts/run_eval.py --model qwen3vl-lora --prompt A
+python scripts/run_eval.py --model internvl35-lora --prompt A
 ```
 
 ### Phase 6 — 评估汇总
@@ -197,19 +203,24 @@ outputs/
   instructblip/
     predictions_prompt_a.jsonl
     metrics_prompt_a.json
+    metrics_fewshot_k1.json, metrics_fewshot_k3.json
   qwen3vl/
     predictions_prompt_a.jsonl
     predictions_prompt_b.jsonl, predictions_prompt_c.jsonl
     predictions_fewshot_k1.jsonl, predictions_fewshot_k3.jsonl
     metrics_prompt_a.json, ...
   internvl35/
+    predictions_fewshot_k1.jsonl, predictions_fewshot_k3.jsonl
     predictions_prompt_a.jsonl
     metrics_prompt_a.json
+    metrics_fewshot_k1.json, metrics_fewshot_k3.json
   llava-lora/
     metrics_prompt_a.json
+    metrics_fewshot_k1.json, metrics_fewshot_k3.json
   qwen-3vl-lora/
     training.log
     metrics_prompt_a.json
+    metrics_fewshot_k1.json, metrics_fewshot_k3.json
   zeroshot_all_metrics.json
   fewshot_all_metrics.json
   fewshot_cache/
@@ -266,7 +277,7 @@ InternVL3-8B       | 2025 | 62.7           |  —                | InternVL3 −
   □ 在 models/__init__.py 注册 "internvl35"
   □ 在 config/__init__.py MODEL_REGISTRY 添加 internvl35
   □ 确认 Qwen3-VL-8B 和 InternVL3-8B 模型已下载
-  □ 验证两个新模型 ZS 推理（--subsample 5）
+  □ 验证 ZS + FS + LoRA 推理（全管线已验证通过）
 
 □ Phase 1: LLaVA ZS dev mode (--subsample 100)
   □ 推理 + 评估 → 确认 VLM 能力基线
@@ -276,6 +287,7 @@ InternVL3-8B       | 2025 | 62.7           |  —                | InternVL3 −
   □ 评估 ref_based + ref_free
 
 □ Phase 3: Few-Shot
+  □ llava + qwen3vl + internvl35 × k=1,3 × 3500
   □ llava + qwen3vl × k=1,3 × 3500
   □ 评估
 
@@ -284,9 +296,14 @@ InternVL3-8B       | 2025 | 62.7           |  —                | InternVL3 −
   □ 评估 ref_free_only
 
 □ Phase 5: LoRA
+  □ llava-lora bf16 重跑
+  □ qwen3vl-lora 首次训练
+  □ internvl35-lora 首次训练
+  □ internvl35-lora 首次训练
   □ llava-lora bf16 重跑（确保公平对比）
   □ qwen3vl-lora 首次训练
-  □ 推理 + 评估
+  □ internvl35-lora 首次训练
+  □ 推理 + 评估（llava + qwen3vl + internvl35）
 
 □ Phase 6: 汇总
   □ 生成 zeroshot_all_metrics.json, fewshot_all_metrics.json
