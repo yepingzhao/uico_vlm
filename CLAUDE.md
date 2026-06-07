@@ -43,6 +43,17 @@ Central configuration lives in `config/__init__.py`:
 
 LoRA training configs live in `config/training.py` (`TrainingConfig` dataclass + `MODEL_LORA_CONFIGS` dict). Currently supports llava, llava-next, and qwen2vl, each with model-specific `target_modules`.
 
+### Common (`common/`)
+
+Shared infrastructure decoupled from scripts:
+- `pipeline.py` — `InferenceRunner`: checkpoint/resume, JSONL writing, progress logging. Delegates generation to a `GenerationStrategy`.
+- `strategies.py` — `GenerationStrategy` ABC with `ZeroShotStrategy`, `FewShotStrategy`, `LoRAStrategy`. Each encapsulates how to load a model and generate captions.
+- `training.py` — `TrainingRunner`: model-agnostic QLoRA training loop. Delegates model-specific decisions to a `TrainingModelAdapter`.
+- `training_adapter.py` — `TrainingModelAdapter` ABC + 5 concrete adapters (`StandardAdapter`, `LLaVANeXTAdapter`, `QwenVLAdapter`, `InternVLAdapter`, `Phi35Adapter`). Each encapsulates processor loading, forward routing, and validation inference for one model family.
+- `dataset_bundle.py` — `DatasetBundle`: lightweight (image_ids, image_paths) value object decoupled from the COCO API.
+- `checkpoint.py` — prediction-file checkpoint/resume helpers.
+- `eval_core.py` — shared evaluation functions.
+
 ### Model Wrappers (`models/`)
 
 All models implement the `VLMWrapper` ABC (`models/base.py`):
@@ -118,9 +129,15 @@ Two evaluation modes:
 
 `scripts/run_fewshot.py` uses the same checkpoint/resume pattern as `scripts/run_inference.py` but calls `wrapper.generate_fewshot()`. Few-shot-capable models are auto-discovered by checking `wrapper.supports_fewshot`.
 
-### Training (`scripts/train_lora.py`)
+### Training (`scripts/run_lora.py`)
 
-QLoRA fine-tuning with multi-model support:
+QLoRA fine-tuning with multi-model support. The script supports three modes: train+inference (default), `--train` (train only), `--inference_only` (inference with existing checkpoint).
+
+The training pipeline decouples model-specific logic from the training loop:
+- `common/training.py` — `TrainingRunner`: model-agnostic training loop (epoch/step, gradient accumulation, checkpointing, validation scheduling)
+- `common/training_adapter.py` — `TrainingModelAdapter` ABC + 5 concrete adapters (Standard, LLaVANeXT, QwenVL, InternVL, Phi35) encapsulating processor loading, forward routing, and validation inference per model family
+
+Training details:
 - 4-bit NF4 quantization with double quantization, bfloat16 compute dtype
 - LoRA defaults: r=16, alpha=32, dropout=0.05 on model-specific target_modules
 - Vision encoder frozen, multimodal projector quantized (4-bit) but not LoRA-tuned
@@ -174,14 +191,17 @@ python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5 --subsample 500
 python scripts/eval_fewshot.py --model llava --k 1
 python scripts/eval_fewshot.py --all
 
-# Training (default: 2 epochs, lora_r=16, lora_alpha=32, lr=2e-4, batch=1×8)
-python scripts/train_lora.py --model llava
-python scripts/train_lora.py --model llava-next --epochs 3 --lora_r 8
-python scripts/train_lora.py --model qwen2vl --max_samples 500 --no_swanlab   # quick test
-python scripts/train_lora.py --model qwen2vl --lr 1e-4 --epochs 5             # custom hparams
+# Training + inference (default: 2 epochs, lora_r=16, lora_alpha=32, lr=2e-4, batch=1×8)
+python scripts/run_lora.py --model llava
+python scripts/run_lora.py --model llava-next --epochs 3 --lora_r 8
+python scripts/run_lora.py --model qwen2vl --max_samples 500 --no_swanlab   # quick test
+python scripts/run_lora.py --model qwen2vl --lr 1e-4 --epochs 5             # custom hparams
 
-# LoRA inference
-python scripts/inference_lora.py --model llava
+# LoRA inference only (skip training)
+python scripts/run_lora.py --model llava --inference_only --subsample 100
+
+# Train only (skip inference)
+python scripts/run_lora.py --model llava --train
 
 # Table generation (TBD — script not yet created)
 # python make_table.py

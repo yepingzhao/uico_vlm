@@ -36,7 +36,7 @@ MODEL_REGISTRY = [
     ("qwen3vl",         "Qwen/Qwen3-VL-8B-Instruct",               "Qwen3VLWrapper"),
 ]
 
-# Prompt templates are defined in prompts/templates.py (single source of truth).
+# Prompt templates are defined in config/prompts.py (single source of truth).
 # Sensitivity analysis: only run B/C on these models
 SENSITIVITY_MODELS = ["llava", "qwen2vl"]
 

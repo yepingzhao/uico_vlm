@@ -137,7 +137,7 @@ Few-shot examples are pre-sampled once from the training set (fixed seed, cached
 ### 5. QLoRA Fine-Tuning
 
 ```bash
-python scripts/train_lora.py --model llava
+python scripts/run_lora.py --model llava
 ```
 
 Fine-tunes VLMs with:

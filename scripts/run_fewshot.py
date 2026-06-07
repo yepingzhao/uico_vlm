@@ -21,7 +21,7 @@ from common.dataset_bundle import DatasetBundle
 from common.strategies import FewShotStrategy
 from common.pipeline import InferenceRunner
 from models.fewshot import sample_examples
-from prompts.templates import PROMPT_FEWSHOT
+from config.prompts import PROMPT_FEWSHOT
 
 
 def main():

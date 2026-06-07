@@ -20,7 +20,7 @@ from data.dataset import load_test_dataset
 from common.dataset_bundle import DatasetBundle
 from common.strategies import ZeroShotStrategy
 from common.pipeline import InferenceRunner
-from prompts.templates import PROMPT_MAP
+from config.prompts import PROMPT_MAP
 
 
 def main():
