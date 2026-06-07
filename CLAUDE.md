@@ -127,7 +127,7 @@ Two evaluation modes:
 
 `fewshot/content.py` — shared content-block construction for few-shot inference: `build_fewshot_images_and_content()` interleaves example images+captions before the test image. Supports two modes: Qwen-style (embed PIL objects in content blocks) and LLaVA-style (image placeholders with separate image list).
 
-`scripts/run_fewshot.py` uses the same checkpoint/resume pattern as `scripts/run_inference.py` but calls `wrapper.generate_fewshot()`. Few-shot-capable models are auto-discovered by checking `wrapper.supports_fewshot`.
+`scripts/run_inference.py` supports both zero-shot (`--mode zeroshot`) and few-shot (`--mode fewshot`) via the Strategy pattern. Few-shot mode calls `wrapper.generate_fewshot()`; few-shot-capable models are auto-discovered by checking `wrapper.supports_fewshot`.
 
 ### Training (`scripts/run_lora.py`)
 
@@ -173,10 +173,10 @@ python download_models.py --dry-run     # list models
 python download_models.py --model llava # single model
 
 # Zero-shot inference (--overwrite re-generates existing predictions)
-python scripts/run_inference.py --models blip2 llava --subsample 1000 --prompt A
-python scripts/run_inference.py --models llava qwen2vl --prompt B          # sensitivity (ref-free eval only)
-python scripts/run_inference.py --models llava-vllm qwen2vl-vllm --prompt A # vLLM backend
-python scripts/run_inference.py --models llava --prompt A --overwrite       # re-run, discard old predictions
+python scripts/run_inference.py --mode zeroshot --models blip2 llava --subsample 1000 --prompt A
+python scripts/run_inference.py --mode zeroshot --models llava qwen2vl --prompt B          # sensitivity (ref-free eval only)
+python scripts/run_inference.py --mode zeroshot --models llava-vllm qwen2vl-vllm --prompt A # vLLM backend
+python scripts/run_inference.py --mode zeroshot --models llava --prompt A --overwrite       # re-run, discard old predictions
 
 # Prompt B format compliance checker
 python scripts/check_format_compliance.py outputs/llava/predictions_prompt_b.jsonl
@@ -187,7 +187,7 @@ python scripts/run_eval.py --model blip2 --prompt A --ref_free_only   # skip n-g
 python scripts/run_eval.py --all                                      # all models/prompts (B/C = ref-free only)
 
 # Few-shot
-python scripts/run_fewshot.py --models llava qwen2vl --k 1 3 5 --subsample 500
+python scripts/run_inference.py --mode fewshot --models llava qwen2vl --k 1 3 5 --subsample 500
 python scripts/eval_fewshot.py --model llava --k 1
 python scripts/eval_fewshot.py --all
 
