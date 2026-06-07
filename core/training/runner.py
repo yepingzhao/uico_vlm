@@ -6,7 +6,7 @@ validation scheduling, gradient accumulation, checkpointing, and the
 epoch/step iteration — everything that does NOT depend on the specific
 VLM architecture.
 
-Parallel to common/pipeline.py:InferenceRunner on the inference side.
+Parallel to core/inference/runner.py:InferenceRunner on the inference side.
 """
 
 import json

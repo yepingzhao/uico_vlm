@@ -1,6 +1,6 @@
 """TrainingModelAdapter — encapsulates model-specific behavior for QLoRA training.
 
-Parallel to common/strategies.py:GenerationStrategy on the inference side.
+Parallel to core/inference/strategies.py:GenerationStrategy on the inference side.
 Each concrete adapter handles: processor loading, post-load setup, dataset
 configuration, training forward routing, and validation inference.
 

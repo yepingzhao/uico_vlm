@@ -27,4 +27,4 @@ def find_snapshot_dir(model_id: str) -> str:
     return dirs[-1]
 
 
-# load_checkpoint moved to common/checkpoint.py (decouple I/O from models/)
+# load_checkpoint moved to core/inference/checkpoint.py (decouple I/O from models/)
