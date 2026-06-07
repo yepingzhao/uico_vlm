@@ -277,6 +277,10 @@ Qwen3-VL-8B        | ZS           | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
                    | FS (k=1)     | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
                    | FS (k=3)     | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
                    | LoRA         | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
+InternVL3.5-8B     | ZS           | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
+                   | FS (k=1)     | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
+                   | FS (k=3)     | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
+                   | LoRA         | tbd  | tbd  | tbd  | tbd  | tbd  | tbd
 ```
 
 **Supplementary Table: Generational Improvement on UICO Captioning**
@@ -287,7 +291,7 @@ LLaVA-1.5-7B       | 2024  | ~36            | tbd               | —
 Qwen2.5-VL-7B      | 2025  | 55.0           | tbd               | —
 Qwen3-VL-8B        | 2025  | ~60+           | tbd               | Qwen3-VL − Qwen2.5-VL
 InternVL2-8B       | 2024  | ~50            | tbd               | —
-InternVL3.5-8B       | 2025  | 62.7           | tbd               | InternVL3 − InternVL2
+InternVL3.5-8B     | 2025  | ~70            | tbd               | InternVL3.5 − InternVL2
 ```
 
 这张 supplementary table 直接回应了「为什么升级模型」的问题，同时展示了通用 benchmark 提升与 domain-specific 提升之间的不对等关系 — 如果 domain 提升远小于通用提升（很可能），这将强化「domain 特殊性」论证。
