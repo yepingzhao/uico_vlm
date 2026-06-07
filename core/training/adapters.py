@@ -301,14 +301,6 @@ class InternVLAdapter(TrainingModelAdapter):
 #  Phi-3.5-Vision
 # ═══════════════════════════════════════════════════════════════════════
 
-# Phi-3.5-Vision + transformers >= 4.49: DynamicCache.get_max_length()
-# is called by the vendored modeling_phi3_v.py but does not exist on
-# the upstream class.  Patch once at import time.
-from transformers.cache_utils import DynamicCache
-if not hasattr(DynamicCache, "get_max_length"):
-    DynamicCache.get_max_length = lambda self: None
-
-
 class Phi35Adapter(TrainingModelAdapter):
     """Phi-3.5-Vision adapter.
 
@@ -318,6 +310,13 @@ class Phi35Adapter(TrainingModelAdapter):
     """
 
     def load_processor(self, model_id: str, model_cfg: dict) -> dict:
+        # Phi-3.5-Vision + transformers >= 4.49: DynamicCache.get_max_length()
+        # is called by the vendored modeling_phi3_v.py but does not exist on
+        # the upstream class.  Patch once on first use.
+        from transformers.cache_utils import DynamicCache
+        if not hasattr(DynamicCache, "get_max_length"):
+            DynamicCache.get_max_length = lambda self: None
+
         from transformers import AutoProcessor
 
         kwargs = {}
