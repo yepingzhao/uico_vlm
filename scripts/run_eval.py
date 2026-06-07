@@ -26,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import OUTPUT_DIR
-from common.evaluator import load_predictions, compute_metrics
+from core.evaluation.runner import load_predictions, compute_metrics
 from data.dataset import load_test_dataset
 
 FEWSHOT_K_VALUES = [1, 3, 5]

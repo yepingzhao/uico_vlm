@@ -23,8 +23,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import OUTPUT_DIR, RANDOM_SEED, MAX_NEW_TOKENS
 from data.dataset import DatasetBundle, load_test_dataset
-from common.strategies import ZeroShotStrategy, FewShotStrategy
-from common.pipeline import InferenceRunner
+from core.inference.strategies import ZeroShotStrategy, FewShotStrategy
+from core.inference.runner import InferenceRunner
 from config.prompts import PROMPT_MAP, PROMPT_FEWSHOT
 
 
