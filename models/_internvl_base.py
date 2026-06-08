@@ -169,9 +169,11 @@ class InternVLBase(VLMWrapper):
         pixel_values = self._img_processor(images=image, return_tensors="pt")
         pixel_values = pixel_values["pixel_values"].to(self._device)
 
+        # Match model dtype (float16 for zero-shot, bfloat16 for QLoRA 4-bit)
+        model_dtype = next(self._model.parameters()).dtype
         response = self._model.chat(
             self._tokenizer,
-            pixel_values=pixel_values.to(torch.float16),
+            pixel_values=pixel_values.to(model_dtype),
             question=self._format_question(prompt),
             generation_config=gen_config,
         )
