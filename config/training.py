@@ -58,10 +58,9 @@ MODEL_LORA_CONFIGS: Dict[str, dict] = {
         "model_id": "llava-hf/llava-1.5-7b-hf",
         "model_class_name": "LlavaForConditionalGeneration",
         "processor_class_name": "AutoProcessor",
-        "target_modules": (
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
-        ),
+        # 4 attention-only modules — unified with Qwen3VL/InternVL35
+        # for fair cross-model LoRA comparison.
+        "target_modules": ("q_proj", "k_proj", "v_proj", "o_proj"),
     },
     "llava-next": {
         "model_id": "llava-hf/llava-v1.6-mistral-7b-hf",

@@ -254,15 +254,15 @@ Tier 4 (最小改动):     LLaVA-1.5 + Qwen2.5-VL-7B + InternVL2-8B + InstructBL
 
 - 实验列表
   - Zero-Shot
-    - BLIP-2
-    - InstructBLIP
-    - LLaVA-1.5-7B
+    - [×] BLIP-2 
+    - [×] InstructBLIP
+    - [×] LLaVA-1.5-7B
     - Qwen3-VL-8B
-    - InternVL3.5-8B
-  - Few-Shot
-    - LLaVA-1.5-7B
+    - [×] InternVL3.5-8B
+  - Few-Shot (1, 3)
+    - [×] LLaVA-1.5-7B
     - Qwen3-VL-8B
-    - InternVL3.5-8B
+    - [×] InternVL3.5-8B
   - Lora
     - LLaVA-1.5-7B
     - Qwen3-VL-8B
