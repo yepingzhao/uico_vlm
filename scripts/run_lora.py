@@ -60,7 +60,7 @@ def main():
                         help="Limit training samples (0 = all).")
     parser.add_argument("--save_steps", type=int, default=2000)
     parser.add_argument("--logging_steps", type=int, default=50)
-    parser.add_argument("--val_steps", type=int, default=200,
+    parser.add_argument("--val_steps", type=int, default=50,
                         help="Run validation every N global steps "
                              "(0 = epoch-only).")
     parser.add_argument("--val_samples", type=int, default=10,
