@@ -78,6 +78,10 @@ def main():
     parser.add_argument("--overwrite", action="store_true",
                         help="Delete existing predictions before "
                              "inference.")
+    parser.add_argument("--partition", type=str, default="",
+                        help="Strided partition: 'k/n' (every n-th image).")
+    parser.add_argument("--chunk", type=str, default="",
+                        help="Contiguous chunk: 'k/n' (block k of n).")
 
     args = parser.parse_args()
 
@@ -137,7 +141,15 @@ def main():
             bundle=bundle,
             prompt_label="a",
         )
-        inf_runner.run(overwrite=args.overwrite, device=args.device)
+        partition = chunk = None
+        if args.partition:
+            k, n = args.partition.split("/")
+            partition = (int(k), int(n))
+        if args.chunk:
+            k, n = args.chunk.split("/")
+            chunk = (int(k), int(n))
+        inf_runner.run(overwrite=args.overwrite, device=args.device,
+                       partition=partition, chunk=chunk)
 
 
 if __name__ == "__main__":
