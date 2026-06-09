@@ -9,6 +9,7 @@
 \usepackage{algorithmic}
 \usepackage{array}
 \usepackage{booktabs}
+\usepackage{multirow}
 
 % --- Figures and graphics ---
 \usepackage{graphicx}
@@ -57,778 +58,832 @@
 
 \begin{document}
 	
-\title{UICO: A Dataset and UIFormer Framework for Context-Aware Urban Incivility Captioning}
-
-\author{Yeping Zhao\textsuperscript{†},
-	Jian Ma\textsuperscript{†}, \IEEEmembership{Member, IEEE},
-	Ping An, \IEEEmembership{Member, IEEE},
-	Linsheng Huang
+	\title{UICO: A Dataset and UIFormer Framework for Context-Aware Urban Incivility Captioning}
 	
-	\thanks{\textsuperscript{†}These authors contributed equally to this work. This work was supported in part by the National Natural Science Foundation of China under Grants 61906118, 62273001. (Corresponding author: Jian Ma)}
-	\thanks{Yeping Zhao is with the School of Internet \& School of Chery-Hyundai Automotive Technology, Anhui University, Hefei 230039, China. (e-mail: y02214150@stu.ahu.edu.cn).
+	\author{Yeping Zhao\textsuperscript{†},
+		Jian Ma\textsuperscript{†}, \IEEEmembership{Member, IEEE},
+		Ping An, \IEEEmembership{Member, IEEE},
+		Linsheng Huang
 		
-		Jian Ma is with the School of Internet, Anhui University, Hefei 230039, China \& the College of Computing, City University of Hong Kong, Hong Kong 999077, China. (e-mail: jian\_ma@fudan.edu.cn).
-		
-		Ping An is with the School of Communication \& Information Engineering, Shanghai University, Shanghai 200444, China. (e-mail: anping@shu.edu.cn).
-		
-		
-		Linsheng Huang is with the School of Internet, Anhui University, Hefei 230039, China. (e-mail: linsheng0808@163.com).
-	}
-}
-
-\maketitle
-\noindent
-	
-\begin{abstract}
-Understanding urban scenes requires not only recognizing objects but also interpreting civic behaviors and their normative deviations. Existing image captioning models struggle to describe urban incivility, which involves complex contextual violations of civic order. To address this challenge, we propose UIFormer, a vision-language framework designed to generate semantically rich and governance-aware descriptions of uncivil urban scenes. Our framework introduces two key innovations: a Multi-level Feature Merging (MFM) module that adaptively fuses multi-scale visual semantics across hierarchical layers of a vision backbone, and a Multiway Dynamic Dense Connection (MDDC) Transformer that enhances feature propagation and contextual reasoning. To support model development and benchmarking, we also contribute Urban Incivility in Context (UICO) dataset, a large-scale expert-annotated dataset comprising 37,844 image-text pairs capturing diverse urban incivility scenarios with fine-grained civic semantics. Comprehensive experiments demonstrate that UIFormer achieves state-of-the-art performance on the UICO benchmark, significantly outperforming strong baselines across standard evaluation metrics. Qualitative analysis further confirms its ability to produce accurate, context-aware descriptions aligned with administrative norms. This work advances urban scene understanding from visual recognition to actionable civic inference and provides a practical framework for intelligent urban governance.
-\end{abstract}
-	
-\begin{IEEEkeywords}
-Urban incivility captioning, multi-level feature merging, multiway dynamic dense connection, UICO dataset.
-\end{IEEEkeywords}
-
-
-\section{Introduction}
-
-\begin{figure}[ht!]
-	\centering
-	\includegraphics[width=1.0\linewidth]{figs/example.pdf}
-	\caption{Illustrating the paradigm shift from general scene captioning to normative urban incivility captioning. 
-	}
-	\label{fig:example}
-\end{figure}
-
-\IEEEPARstart{T}{he} rapid evolution of multimodal deep learning has fundamentally transformed the landscape of intelligent perception and semantic understanding. Vision–language pretraining (VLP) techniques, exemplified by models such as CLIP, BLIP, and Transformer-based architectures, have demonstrated remarkable success in aligning visual and linguistic semantics through shared embedding spaces~\cite{vaswani2017attention, radford2021learning, li2022blip, zhang2024vision}. These advances have effectively bridged the semantic gap between images and text, catalyzing breakthroughs in tasks including visual question answering, cross-modal retrieval, and automated image captioning.
-
-Concurrently, the global pursuit of smart city initiatives is transitioning from passive, sensor-driven observations, such as traffic counting, toward proactive, semantically-rich interpretation of urban dynamics~\cite{chen2024profiling, dubey2016deep, feng2024citybench, hao2025urbanvlp, lai2025ustbench, li2024urbangpt, liu2025citylens, liu2025urbanmind, ordonez2014learning, yan2024urbanclip, yuan2024unist, zhang2024urban, zhou2025urbench}. Contemporary evaluation frameworks, including CityBench~\cite{feng2024citybench} and UrBench~\cite{zhou2025urbench}, underscore the growing reliance on large language models (LLMs) and vision-language models (VLMs) to perform high-level urban perception and governance-oriented reasoning. Nevertheless, a conspicuous gap remains: while existing research has made significant strides in urban scene understanding, the specific task of automated urban incivility captioning, which involves generating semantically rich, context-aware captions for scenes depicting civic norm violations, remains unexplored. This represents a critical limitation for real-world urban governance applications where understanding behavioral irregularities is as important as recognizing physical objects.
-
-Urban incivility captioning poses unique challenges that distinguish it from conventional image captioning tasks. As illustrated in Fig.~\ref{fig:example}, unlike standard captioning domains that focus on object presence and spatial relationships, urban incivility involves interpreting normative deviations, which refers to scenes where objects or behaviors violate established civic rules and social expectations. A parked vehicle, for instance, may represent either lawful parking or illegal occupation of pedestrian space depending on its contextual positioning relative to road markings, sidewalks, and traffic signs. This requires models to not only recognize visual elements but also infer their civic implications based on implicit social norms and regulatory frameworks.
-
-Existing image captioning methodologies~\cite{11299447, 10896876, lu2017knowing, anderson2018bottom, huang2019adaptively}, are inherently ill‑suited for interpreting urban incivility. Such approaches predominantly focus on producing fluent captions for visually prominent objects, largely overlooking the behavioral infractions and normative deviations that constitute the essence of civic‑scene understanding. The semantic mismatch is further exacerbated by dataset limitations: predominant benchmarks such as MSCOCO~\cite{lin2014microsoft}, Flickr30k~\cite{young2014image}, and Conceptual Captions~\cite{sharma2018conceptual} are curated for aesthetically neutral, normatively compliant scenes, lacking the annotation granularity needed for civic reasoning.
-
-\textbf{Differentiating our approach from existing work,} we identify three key distinctions that position our research as a significant advancement in this emerging field:
-
-First, while prior urban computing research has focused predominantly on \emph{classification} (e.g., identifying whether a scene contains illegal parking) or \emph{detection} (e.g., locating parking violations in images), our work pioneers the task of \emph{contextual description} that provides rich semantic explanations of civic violations. This represents a paradigm shift from binary decision-making to comprehensive semantic understanding, enabling more interpretable and actionable insights for urban governance.
-
-
-Second, unlike conventional captioning models that rely on single-scale visual features or homogeneous backbone architectures, our proposed UIFormer introduces a novel \emph{multi-granularity fusion mechanism} that harmonizes complementary visual representations. Specifically, our Multi-level Feature Merging (MFM) module overcomes the limitations of both CLIP-based approaches (which excel at semantic alignment but lack fine-grained geometric detail) and DINOv2-style models (which capture dense spatial relationships but lack explicit vision-language grounding). This integrated approach enables the model to simultaneously understand "what" is in the scene (semantic content) and "how" it violates norms (structural context), a capability absent in existing vision-language models.
-
-
-
-Third, our architectural design addresses a fundamental limitation in Transformer-based captioning systems: the progressive information loss in deep networks. Through our Multiway Dynamic Dense Connection (MDDC) mechanism, we establish direct cross-layer communication pathways that preserve both low-level visual details and high-level semantic abstractions throughout the encoding process. This contrasts with conventional Transformer architectures where features undergo sequential transformation with potential information degradation, particularly detrimental for describing subtle civic violations that require precise visual evidence retention.
-
-
-To address these challenges, this paper presents \textbf{the first comprehensive study on automated urban incivility captioning}, with the following key contributions:
-
-\begin{enumerate}
-	\item \textbf{Introducing the Urban Incivility Captioning Task}: We formally define and establish urban incivility captioning as a novel research problem at the intersection of computer vision, natural language processing, and urban computing. Unlike prior work focused on classification or detection, our approach emphasizes \emph{contextual description} that captures both visual evidence and civic implications.
-	
-	\item \textbf{The Urban Incivility in Context (UICO) Dataset}: We construct and release the first large-scale, expert-annotated UICO dataset, comprising 37,844 high-fidelity image-text pairs with granular civic annotations. Each sample includes detailed descriptions that explicitly connect visual evidence to specific normative violations, providing an essential benchmark for this emerging research direction.
-	
-	\item \textbf{The UIFormer Architecture}: We propose a novel vision-language framework specifically designed for civic semantic understanding. Our architecture introduces two core innovations:\\
-	\quad • An MFM module that adaptively fuses hierarchical visual features across layers of a vision backbone, preserving both global semantic context and local structural details essential for detecting subtle norm violations.\\
-	\quad • An MDDC Transformer encoder that enhances feature propagation and contextual reasoning through dense cross-layer connections, enabling robust interpretation of complex urban scenes.
-	
-	\item \textbf{Comprehensive Benchmark Establishment}: Through extensive experiments on the UICO dataset, we establish the first performance benchmarks for urban incivility captioning. Our results demonstrate that UIFormer significantly outperforms existing captioning models across both standard metrics and civic-relevant evaluations, validating the necessity of specialized architectures for this domain.
-\end{enumerate}
-
-Our work represents a significant departure from conventional urban scene understanding by shifting the focus from \emph{what is present} to \emph{what is problematic}. By bridging the gap between visual perception and civic semantics, we provide not only a technical framework for automated urban governance but also a foundation for future research in normative visual understanding. The proposed approach has direct implications for smart city applications including automated violation reporting, civic education, and data-driven urban policy making.
-
-The remainder of this paper is organized as follows: Section~II reviews the related work. Section~III details the UICO dataset. Section~IV elaborates on the proposed UIFormer framework. Section~V presents experimental evaluations and analyses. Section~VI concludes this article.
-
-\section{Related Work}
-
-Our research integrates advances from three interconnected fields: multimodal urban intelligence, image-text dataset curation, and image captioning architectures. This section synthesizes foundational and contemporary works to contextualize our contributions, delineate the current state of the art, and identify the specific gaps that our proposed framework aims to address.
-
-
-
-
-\subsection{Multimodal Urban Intelligence}
-
-The field of urban computing has undergone a significant evolution, shifting from static, sensor-driven quantification toward dynamic semantic interpretation empowered by foundation models. Initial methodologies predominantly employed computer vision techniques to establish correlations between the physical appearance of urban spaces and perceptual attributes such as safety, livability, or socioeconomic status \cite{dubey2016deep, ordonez2014learning}. The recent emergence of Urban Foundation Models (UFMs) and Large Language Models (LLMs) has catalyzed a new paradigm focused on deciphering complex spatio-temporal dependencies and inferring high-level urban indicators through semantic reasoning \cite{zhang2024urban}. For example, models like UrbanCLIP integrate web-sourced textual knowledge with visual data for enhanced urban profiling \cite{yan2024urbanclip}. However, a critical examination reveals a persistent tension between data granularity and reasoning depth. Reliance on inherently noisy, web-mined text often introduces hallucinations and homogenization artifacts, thereby compromising the reliability and fidelity of synthesized urban descriptions \cite{hao2025urbanvlp}.
-
-Concurrently, the potential of Multimodal Large Language Models (MLLMs) to function as autonomous urban agents is a subject of active investigation. Models such as UrbanGPT and UniST demonstrate promising capabilities in spatio-temporal prediction through instruction tuning \cite{li2024urbangpt, yuan2024unist}. Nevertheless, systematic evaluations via benchmarks like CityBench and USTBench expose significant limitations, particularly in tasks requiring sophisticated spatial logic, long-horizon planning, and cross-view consistency \cite{feng2024citybench, lai2025ustbench, zhou2025urbench}. Furthermore, approaches concentrating exclusively on either macro-level urban patterns or isolated micro-level street views frequently fail to reconcile the inherent biases and information gaps present in unimodal data sources \cite{chen2024profiling, hao2025urbanvlp}. This landscape underscores a critical need for a unified, context-aware framework capable of synthesizing multi-granular visual semantics with the nuanced, human-centric understanding requisite for actionable urban intelligence \cite{he2025urbanfeel}. Our work directly addresses this gap by introducing a vision-language model specifically engineered for the complex task of generating contextual descriptions of urban incivility, a critical advancement toward interpretable and administratively relevant urban scene understanding.
-
-\subsection{Image-Text Datasets}
-
-The development of image-text datasets has progressed along two complementary axes: the scalable aggregation of paired multimodal data and the expansion of captioning objectives toward deeper semantic inference. Foundational efforts such as SBU Captions and the Flickr series established initial paradigms using web-harvested or crowd-sourced annotations; however, their constrained visual and linguistic diversity limits model generalization \cite{ordonez2011im2text, hodosh2013framing, young2014image}. The MS-COCO dataset represented a significant advance in scene complexity and annotation density, though its primary focus on common object categories inherently biases learned representations toward frequently occurring visual concepts \cite{lin2014microsoft}. Subsequent initiatives prioritized scale and source variety. Datasets like Conceptual Captions and CC12M employed automated, relaxed collection pipelines to achieve web-scale coverage, often at the expense of introducing semantic noise and weakening image-text correspondence \cite{sharma2018conceptual, changpinyo2021conceptual}. Similarly, the multilingual WIT dataset provides encyclopedic breadth but suffers from long-tail sparsity and stylistic heterogeneity, which pose challenges for consistent multimodal training \cite{srinivasan2021wit}.
-
-Parallel research has critically re-examined the objectives of image-text alignment, advocating a move beyond surface-level correspondence toward genuine semantic inference. Studies employing ranking-based formulations and denotation-driven similarity metrics have demonstrated the insufficiency of lexical overlap alone for capturing visual meaning \cite{hodosh2013framing, young2014image}. Specialized benchmarks, including nocaps and TextCaps, have further revealed fundamental limitations in contemporary captioning systems, particularly concerning novel concept recognition and the integration of scene text into coherent narratives \cite{agrawal2019nocaps, sidorov2020textcaps}.
-
-Despite these substantial advancements, a pronounced void exists in datasets that capture situated civic environments. Current corpora largely lack systematic annotations for subtle behavioral cues, regulatory indicators, spatial semantics, and the normative frameworks essential for compliance-oriented reasoning. This omission creates a significant bottleneck for research aiming to bridge visual perception with actionable civic intelligence. In direct response to this need, we introduce the UICO dataset, a large-scale, expert-annotated resource specifically designed to support the nuanced multimodal understanding of urban incivility within authentic governance contexts.
-
-
-
-\subsection{Image Captioning Architectures}
-
-Advances in image captioning have been driven by the co-evolution of visual encoding strategies and sequence generation mechanisms. The foundational encoder-decoder paradigm, which integrated Convolutional Neural Network (CNN) features with recurrent decoders, established initial competency but was constrained by fixed receptive fields, thereby limiting fine-grained visual reasoning \cite{vinyals2015show, 2016mscoco}. The introduction of attention mechanisms addressed this limitation by enabling dynamic, content-aware alignment between visual regions and linguistic units. These mechanisms evolved from adaptive formulations to more sophisticated meta-attentive designs that introspectively evaluate their own relevance scores \cite{lu2017knowing, huang2019attention}. A key underlying assumption in many such approaches is the existence of stable region-word mappings, an assumption challenged by more flexible adaptive-time alignment frameworks \cite{huang2019adaptively}.
-
-The shift toward object-centric encoders, epitomized by bottom-up attention, grounded language generation in semantically salient regions but introduced a dependency on external object detection systems \cite{anderson2018bottom, 8630068, 9279262}. The advent of Transformer-based architectures superseded recurrent networks with global self-attention, enabling deeper and more direct multimodal integration \cite{vaswani2017attention, cornia2020meshed}. To address the lack of background information in region features, the Double-Stream Position Learning Transformer Network (DSPLTN) introduces complementary patch features with convolutional position learning, synthesizing local and global visual cues \cite{jiang2022doublestream}. Similarly, the De-Confounding Feature Fusion Transformer Network (DFFTNet) incorporates a distance-enhanced feature expansion module and causal adjustment to eliminate visual-semantic confusion caused by spurious correlations \cite{cao2025deconfounding}. Nonetheless, vanilla grid-based Vision Transformers can still suffer from spatial information degradation, prompting further enhanced variants that incorporate local-sensitive reasoning and higher-order attention mechanisms \cite{ma2023towards, zeng2022s2, luo2021dual, pan2020x, wang2023cropcap}. More recently, compact bidirectional architectures have been proposed to exploit both past and future context during decoding, demonstrating that sentence-level ensemble and parameter sharing contribute more than explicit interaction mechanisms \cite{11474636}.
-
-Contemporary trends include one-stage architectures that challenge traditional two-stage pipelines and methods that leverage large-scale vision-language models like CLIP as semantic priors for caption generation \cite{wang2022osic, 10659916}. On the evaluation front, the DARTScore metric formulates video caption evaluation as a dual-reconstruction problem, assessing faithfulness and comprehensiveness without heavy reference reliance \cite{chen2024dartscore}. Reinforcement learning techniques have also been employed to directly optimize task-specific metrics such as CIDEr; however, they risk amplifying inherent dataset biases rather than improving genuine semantic fidelity \cite{rennie2017self}. Despite these progressive innovations, state-of-the-art captioning systems continue to grapple with several persistent challenges. These include the incomplete and suboptimal fusion of complementary local detail and global contextual visual cues, the inadequate modeling of the distinction between visually grounded tokens and abstract linguistic concepts, and limited robustness when confronted with the complex, heterogeneous scenes characteristic of real-world environments. These shortcomings motivate the development of novel architectures capable of enhanced structural reasoning, adaptive multi-level semantic integration, and more faithful visual-linguistic alignment. The design of our proposed UIFormer framework is explicitly guided by these objectives.
-
-
-
-
-\begin{figure*}[ht!]
-	\centering
-	\captionsetup{justification=justified}
-	\subfloat[Top 20 high-frequency adjectival tokens\label{fig:top20_adj}]{
-		\includegraphics[width=0.9\linewidth]{figs/top_20_adjectives.pdf}
-	}
-	\vspace{-0.1em}
-	\subfloat[Top 20 high-frequency verbal tokens\label{fig:top20_verbs}]{
-		\includegraphics[width=0.9\linewidth]{figs/top_20_verbs.pdf}
-	}	
-	\caption{Quantitative Semantic Validation of the UICO Dataset Text Corpus. The statistical distribution of high-frequency linguistic features demonstrates the dataset's specific focus on non-normative urban behavior and environmental disorder, distinguishing it from conventional scene description corpora.}
-	\label{fig:top20_adj_verbs}
-\end{figure*}
-
-
-\begin{figure}[ht!]
-	\centering
-	\includegraphics[width=0.9\linewidth]{figs/dataset_wordcloud.pdf}
-	\captionsetup{justification=justified}
-	\caption{Word cloud visualization of the UICO dataset vocabulary. High-frequency terms are rendered in darker colors following the Viridis colormap, revealing the dataset's semantic focus on vehicular violations, spatial disorder, and environmental degradation.} 
-	\label{fig:dataset_wordcloud}
-\end{figure}
-
-
-\begin{figure}[ht!]
-	\centering
-	\includegraphics[width=0.9\linewidth]{figs/length_distribution.pdf}
-	\captionsetup{justification=justified}
-	\caption{Caption length distribution of the UICO dataset. The histogram displays word count frequency with kernel density estimation (KDE) overlay. Dashed red and dotted green lines indicate mean and median values, respectively.} 
-	\label{fig:length_distribution}
-\end{figure}
-
-
-\begin{figure}[t]
-	\centering
-	\subfloat[Distribution across Functional Point Type Categories\label{fig:point_type}]{
-		\includegraphics[width=0.9\columnwidth]{./figs/Point_type.pdf}
-	}\\[0.0cm]
-	\subfloat[Distribution across Official Inspection Criteria Taxonomy\label{fig:inspection_criterias}]{
-		\includegraphics[width=0.9\columnwidth]{./figs/Inspection_criteria.pdf}
+		\thanks{\textsuperscript{†}These authors contributed equally to this work. This work was supported in part by the National Natural Science Foundation of China under Grants 61906118, 62273001. (Corresponding author: Jian Ma)}
+		\thanks{Yeping Zhao is with the School of Internet \& School of Chery-Hyundai Automotive Technology, Anhui University, Hefei 230039, China. (e-mail: y02214150@stu.ahu.edu.cn).
+			
+			Jian Ma is with the School of Internet, Anhui University, Hefei 230039, China \& the College of Computing, City University of Hong Kong, Hong Kong 999077, China. (e-mail: jian\_ma@fudan.edu.cn).
+			
+			Ping An is with the School of Communication \& Information Engineering, Shanghai University, Shanghai 200444, China. (e-mail: anping@shu.edu.cn).
+			
+			
+			Linsheng Huang is with the School of Internet, Anhui University, Hefei 230039, China. (e-mail: linsheng0808@163.com).
+		}
 	}
 	
-	%	\vspace{0.1cm}
-	\caption{Governance-Centric Distribution of Visual Question Answering (VQA) Annotations. This analysis validates UICO's utility for context-aware urban intelligence by mapping incivility instances to administrative categories and functional spatial zones.}	
-	\label{fig:pie}
+	\maketitle
+	\noindent
 	
-	%	\vspace{-0.3cm}
-\end{figure}
-
-
-
-\begin{figure*}[t]
-	\centering
-	\captionsetup{justification=justified}
-	\footnotesize
-	\setlength{\tabcolsep}{6pt}
-	\renewcommand{\arraystretch}{1.15}
+	\begin{abstract}
+		Understanding urban scenes requires not only recognizing objects but also interpreting civic behaviors and their normative deviations. Existing image captioning models struggle to describe urban incivility, which involves complex contextual violations of civic order. To address this challenge, we propose UIFormer, a vision-language framework designed to generate semantically rich and governance-aware descriptions of uncivil urban scenes. Our framework introduces two key innovations: a Multi-level Feature Merging (MFM) module that adaptively fuses multi-scale visual semantics across hierarchical layers of a vision backbone, and a Multiway Dynamic Dense Connection (MDDC) Transformer that enhances feature propagation and contextual reasoning. To support model development and benchmarking, we also contribute Urban Incivility in Context (UICO) dataset, a large-scale expert-annotated dataset comprising 37,844 image-text pairs capturing diverse urban incivility scenarios with fine-grained civic semantics. Comprehensive experiments demonstrate that UIFormer achieves state-of-the-art performance on the UICO benchmark, significantly outperforming strong baselines across standard evaluation metrics. Qualitative analysis further confirms its ability to produce accurate, context-aware descriptions aligned with administrative norms. This work advances urban scene understanding from visual recognition to actionable civic inference and provides a practical framework for intelligent urban governance.
+	\end{abstract}
 	
-	\begin{tabular}{cccc}
-		% ---------------- Row 1 ----------------
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000022259.pdf}\\[3pt]
-			\raggedright
-			\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Administrative village new era civilization practice station.\\ 
-			\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ \textbf{A2:} Service display.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000023059.pdf}\\[3pt]
-			\raggedright
-			\textbf{Q1:} What is the \textbf{point type} of urban incivility 	scene in this image?\\ \textbf{A1:} Township.\\
-			\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ 
-			\textbf{A2:} Public order.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000038901.pdf}\\[3pt]
-			\raggedright
-			\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Main and Secondary Roads / Commercial Street.\\
-			\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ 
-			\textbf{A2:} Public order.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000040371.pdf}\\[3pt]
-			\raggedright
-			\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Township.\\
-			\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\
-			\textbf{A2:} Public environment.
-		\end{minipage}
-	\end{tabular}
-	\caption{Expert-Curated Visual Question Answering (VQA) Examples from the UICO Dataset. The figure demonstrates the structured annotation paradigm, where questions map visual evidence to specific administrative categories (Point Type) and regulatory classifications (Inspection Criteria) for urban incivility..}
-	\label{fig:examples_dataset}
-	\vspace{-0.25cm}
-\end{figure*}
-
-
-\section{UICO Dataset}
-
-A high-quality, domain-specific dataset is foundational for advancing research in contextual urban scene understanding. The task of urban incivility captioning presents a unique challenge, as it requires models to integrate fine-grained visual evidence with normative behavioral semantics. This complexity necessitates not only a dedicated data resource but also specialized model architectures for visual representation. Before elaborating on our proposed model, we first introduce the UICO dataset, a benchmark developed through direct collaboration with municipal authorities to ensure real-world relevance. The subsequent subsections detail the dataset's collection methodology, linguistic characteristics, and extended benchmarking utility.
-
-\subsection{Dataset Collection Methodology}
-
-The curation of the UICO dataset constitutes a fundamental departure from conventional practices in computer vision dataset construction. Diverging from methodologies reliant on web scraping or crowdsourcing, UICO is founded upon a direct, operational partnership with municipal governance bodies. To ensure the captured data embodies authentic, actionable intelligence for urban management, we collaborated with local municipal offices to integrate our collection framework into their established "Civilized City Management System." This platform, utilized for daily violation reporting and oversight, served as the primary conduit for data acquisition. This integration guarantees that each captured scenario reflects a genuine, administratively recognized civic infraction.
-
-The data collection pipeline was embedded within the routine workflows of professional field inspectors. Employing a custom-developed mobile application, these domain experts captured images in situ across heterogeneous urban functional zones. This expert-driven, on-site capture protocol ensures every image is a purposefully framed evidentiary record, rather than a random street view. Concurrent with image capture, inspectors authored detailed textual descriptions for each scene. This professional annotation protocol is paramount; it ensures captions transcend basic object detection (e.g., "a vehicle") to articulate the precise normative deviation (e.g., "a vehicle is illegally parked on a pedestrian sidewalk, obstructing access"). The final curated corpus comprises 37,844 high-fidelity image-text pairs.
-
-To uphold the data integrity requisite for a reliable benchmark, we implemented a rigorous, two-stage quality assurance protocol. A dedicated cohort of evaluators, independent of the field inspectors, reviewed all submissions via the management system. This process involved verifying the semantic fidelity of each textual description against its corresponding visual evidence and ensuring strict alignment with the official municipal violation taxonomy. This exhaustive, expert-led validation establishes UICO as a robust, high-quality resource for advancing research in normative visual understanding and automated urban governance.
-
-\subsection{Textual Corpus Analysis}
-
-A comprehensive linguistic analysis of UICO's 189,220 caption annotations was conducted to characterize its semantic focus and syntactic properties. We employed spaCy~\cite{honnibal2020spacy} for part-of-speech tagging, lemmatization, and tokenization. The analysis examines two complementary dimensions: lexical semantics, to validate the dataset's governance-oriented vocabulary, and syntactic complexity, to assess annotation consistency for stable model training.
-
-\subsubsection{Lexical Semantic Analysis}
-The distribution of high-frequency lexical tokens confirms UICO's distinct semantic orientation toward civic norm violations, diverging sharply from the neutral, object-centric vocabulary prevalent in standard captioning datasets (e.g., MS-COCO).
-
-Adjectival Distribution: As shown in Fig.~\ref{fig:top20_adj}, the predominant adjectives explicitly denote normative violation (e.g., "unauthorized" (12,901), "illegal" (6,952), "disorderly" (3,749)) and environmental degradation (e.g., "messy" (6,424), "dirty" (4,390)). Contextual modifiers such as "residential" (8,030) and "commercial" (7,336) further attest to the geographic and functional diversity of the documented scenes.
-
-Verbal Distribution: Fig.~\ref{fig:top20_verbs} reveals the nature of the captured uncivil acts. Verbs indicating static obstruction ("park" (21,747), "pile" (7,858), "occupy" (6,880)) dominate, highlighting pervasive issues like illegal parking and public space occupation. Verbs denoting active degradation ("damage" (8,294), "scatter" (5,199)) point to vandalism and littering, while terms like "hang" (3,363) correlate with micro-violations such as disorderly cabling.
-
-Global Lexical Overview:  As shown in Fig.~\ref{fig:dataset_wordcloud}, a word cloud generated from the lemmatized corpus provides a holistic visualization, reinforcing the tripartite semantic structure: violation-centric terms, spatial-contextual descriptors, and environmental-state vocabulary. The Viridis colormap (with darker hues indicating higher frequency) offers an intuitive representation of term prominence.
-
-This lexical profile decisively shifts the semantic focus from what is present to what is problematic, thereby validating UICO's design for training models in behavioral and contextual reasoning.
-
-\subsubsection{Syntactic Complexity Analysis}
-We analyzed the word count distribution across all captions to assess annotation consistency and descriptive complexity. As shown in Fig.~\ref{fig:length_distribution}, captions were tokenized using spaCy (filtering punctuation), and the distribution was visualized via a histogram with a Kernel Density Estimation (KDE) overlay.
-
-Descriptive Statistics: The distribution is unimodal and approximately symmetric, with a mean ($\mu$) of 12.66 words per caption, a median of 12 words, and a standard deviation ($\sigma$) of 4.79. The close alignment between the mean and median indicates a lack of significant skew, reflecting a highly consistent annotation protocol.
-
-Distribution Interpretation: The primary density lies within the 8–17 word range, representing the typical length for concise yet informative descriptions of incivility scenes. The lower tail (<5 words) corresponds to simple, unambiguous violations, while the upper tail (>30 words) encompasses complex scenes with multiple co-occurring infractions that necessitate detailed enumeration.
-
-This analysis confirms that UICO's textual annotations are not only semantically specialized but also syntactically consistent, providing a stable foundation for training language generation models.
-
-\subsection{Visual Question Answering for Governance-Aware Benchmarking}
-
-To extend UICO's utility beyond image captioning and establish a comprehensive benchmark for governance-aware reasoning, we construct a structured Visual Question Answering (VQA) subset. Each image is paired with two expert-defined questions probing administrative classification (Point Type) and regulatory violation assessment (Inspection Criteria), thereby transforming UICO into a multi-task testbed for actionable urban intelligence systems.
-
-\subsubsection{Analysis of Point Types (Spatial Context)}
-The spatial distribution of incivility instances, as detailed in  Fig.~\ref{fig:point_type}, provides critical insights into the dataset's coverage across the urban-rural continuum and diverse functional zones.
-
-High-Density Residential Focus: Incivility is most frequently documented in "Residential Communities" (32.7\%), accurately reflecting real-world governance challenges where dense living environments concentrate public order and environmental maintenance issues.
-
-Urban-Rural Continuum: Significant coverage extends to "Townships" (20.4\%), "Administrative Villages" (4.4\%), and transportation corridors ("Main and Secondary Roads", 15.7\%). This strategic distribution ensures the dataset spans the full settlement hierarchy, effectively mitigating the metropolitan bias prevalent in conventional urban datasets and training models for broader geographical applicability.
-
-Functional Heterogeneity: A substantial proportion of instances (16.9\%) are captured in diverse public spaces aggregated under "Others", including markets, schools, and hospitals. This long‑tail distribution compels models to learn zone‑specific social norms, for example, distinguishing between acceptable commercial activity and unauthorized vending, or between typical hospital environs and improper obstructions.
-
-
-\subsubsection{Analysis of Inspection Criteria (Regulatory Context)}
-The categorical breakdown of violations, illustrated in Fig.~\ref{fig:inspection_criterias}, validates UICO's alignment with core urban governance frameworks and provides a nuanced taxonomy for model evaluation.
-
-Core Governance Concerns: The distribution is strongly skewed toward "Public Order" (43.2\%) and "Public Environment" (38.5\%). This directly operationalizes the "broken windows" theory in an AI benchmarking context, emphasizing the dataset's focus on behavioral disorder, such as illegal parking and unauthorized occupation, and environmental degradation, such as littering and uncleanliness. These constitute the primary levers of actionable urban management.
-
-Comprehensive Taxonomic Coverage: While less frequent, specialized categories such as "Infrastructure" (7.4\%) and "Service Display" (5.8\%) provide essential exemplars. These samples are critical for training models to detect structural damage, safety hazards, and regulatory non-compliance in public signage or advertising, ensuring robustness across the full spectrum of municipal inspection criteria.
-
-
-This structured VQA framework, as exemplified by the annotation samples in Fig.~\ref{fig:examples_dataset}, elevates UICO from a descriptive captioning benchmark to a comprehensive evaluation suite for context-aware urban perception. It mandates that models not only generate fluent descriptions of visual content but also perform the essential relational reasoning to classify where (spatial context) and why (regulatory context) an observed scene constitutes a specific administrative violation. This dual reasoning capability is fundamental for deploying reliable AI systems in real-world governance pipelines.
-
-\section{Network Architecture}
-
-\begin{figure*}[ht!]
-	\centering
-	\captionsetup{justification=justified}
-	\includegraphics[width=0.93\linewidth]{figs/framework.pdf}
-	\caption{Architecture of the Proposed UIFormer Framework.} 
-	\label{fig:framework}
-\end{figure*}
-
-This section delineates the architecture of our proposed framework, which is designed to generate semantically rich and contextually aware descriptions of urban incivility scenes. The model addresses two key limitations of standard Transformers for this task: the insufficient exploitation of multi-scale visual features and the restricted flow of information across decoder layers. As illustrated in \figurename~\ref{fig:framework}, our solution integrates two novel components: an MFM module and an MDDC Transformer decoder. The framework utilizes frozen, large-scale vision-language models (CLIP or DINOv2) as visual encoders. The overall pipeline first extracts and fuses multi-layer visual tokens via the MFM module, then refines the combined contextual information using the MDDC decoder for autoregressive caption generation.
-
-\begin{figure}[t]
-	\centering
-	\captionsetup{justification=justified}
-	\begin{minipage}{0.4\columnwidth}
+	\begin{IEEEkeywords}
+		Urban incivility captioning, multi-level feature merging, multiway dynamic dense connection, UICO dataset.
+	\end{IEEEkeywords}
+	
+	
+	\section{Introduction}
+	
+	\begin{figure}[ht!]
 		\centering
-		\subfloat[Region Features]{
-			\includegraphics[width=\linewidth]{./figs/region_visualization.pdf}
-			\label{fig:region}
+		\includegraphics[width=1.0\linewidth]{figs/example.pdf}
+		\caption{Illustrating the paradigm shift from general scene captioning to normative urban incivility captioning. 
 		}
-	\end{minipage}
-	\hspace{0.2cm}
-	\begin{minipage}{0.4\columnwidth}
+		\label{fig:example}
+	\end{figure}
+	
+	\IEEEPARstart{T}{he} rapid evolution of multimodal deep learning has fundamentally transformed the landscape of intelligent perception and semantic understanding. Vision–language pretraining (VLP) techniques, exemplified by models such as CLIP, BLIP, and Transformer-based architectures, have demonstrated remarkable success in aligning visual and linguistic semantics through shared embedding spaces~\cite{vaswani2017attention, radford2021learning, li2022blip, zhang2024vision}. These advances have effectively bridged the semantic gap between images and text, catalyzing breakthroughs in tasks including visual question answering, cross-modal retrieval, and automated image captioning.
+	
+	Concurrently, the global pursuit of smart city initiatives is transitioning from passive, sensor-driven observations, such as traffic counting, toward proactive, semantically-rich interpretation of urban dynamics~\cite{chen2024profiling, dubey2016deep, feng2024citybench, hao2025urbanvlp, lai2025ustbench, li2024urbangpt, liu2025citylens, liu2025urbanmind, ordonez2014learning, yan2024urbanclip, yuan2024unist, zhang2024urban, zhou2025urbench}. Contemporary evaluation frameworks, including CityBench~\cite{feng2024citybench} and UrBench~\cite{zhou2025urbench}, underscore the growing reliance on large language models (LLMs) and vision-language models (VLMs) to perform high-level urban perception and governance-oriented reasoning. Nevertheless, a conspicuous gap remains: while existing research has made significant strides in urban scene understanding, the specific task of automated urban incivility captioning, which involves generating semantically rich, context-aware captions for scenes depicting civic norm violations, remains unexplored. This represents a critical limitation for real-world urban governance applications where understanding behavioral irregularities is as important as recognizing physical objects.
+	
+	Urban incivility captioning poses unique challenges that distinguish it from conventional image captioning tasks. As illustrated in Fig.~\ref{fig:example}, unlike standard captioning domains that focus on object presence and spatial relationships, urban incivility involves interpreting normative deviations, which refers to scenes where objects or behaviors violate established civic rules and social expectations. A parked vehicle, for instance, may represent either lawful parking or illegal occupation of pedestrian space depending on its contextual positioning relative to road markings, sidewalks, and traffic signs. This requires models to not only recognize visual elements but also infer their civic implications based on implicit social norms and regulatory frameworks.
+	
+	Existing image captioning methodologies~\cite{11299447, 10896876, lu2017knowing, anderson2018bottom, huang2019adaptively}, are inherently ill‑suited for interpreting urban incivility. Such approaches predominantly focus on producing fluent captions for visually prominent objects, largely overlooking the behavioral infractions and normative deviations that constitute the essence of civic‑scene understanding. The semantic mismatch is further exacerbated by dataset limitations: predominant benchmarks such as MSCOCO~\cite{lin2014microsoft}, Flickr30k~\cite{young2014image}, and Conceptual Captions~\cite{sharma2018conceptual} are curated for aesthetically neutral, normatively compliant scenes, lacking the annotation granularity needed for civic reasoning.
+	
+	\textbf{Differentiating our approach from existing work,} we identify three key distinctions that position our research as a significant advancement in this emerging field:
+	
+	First, while prior urban computing research has focused predominantly on \emph{classification} (e.g., identifying whether a scene contains illegal parking) or \emph{detection} (e.g., locating parking violations in images), our work pioneers the task of \emph{contextual description} that provides rich semantic explanations of civic violations. This represents a paradigm shift from binary decision-making to comprehensive semantic understanding, enabling more interpretable and actionable insights for urban governance.
+	
+	
+	Second, unlike conventional captioning models that rely on single-scale visual features or homogeneous backbone architectures, our proposed UIFormer introduces a novel \emph{multi-granularity fusion mechanism} that harmonizes complementary visual representations. Specifically, our Multi-level Feature Merging (MFM) module overcomes the limitations of both CLIP-based approaches (which excel at semantic alignment but lack fine-grained geometric detail) and DINOv2-style models (which capture dense spatial relationships but lack explicit vision-language grounding). This integrated approach enables the model to simultaneously understand "what" is in the scene (semantic content) and "how" it violates norms (structural context), a capability absent in existing vision-language models.
+	
+	
+	
+	Third, our architectural design addresses a fundamental limitation in Transformer-based captioning systems: the progressive information loss in deep networks. Through our Multiway Dynamic Dense Connection (MDDC) mechanism, we establish direct cross-layer communication pathways that preserve both low-level visual details and high-level semantic abstractions throughout the encoding process. This contrasts with conventional Transformer architectures where features undergo sequential transformation with potential information degradation, particularly detrimental for describing subtle civic violations that require precise visual evidence retention.
+	
+	
+	To address these challenges, this paper presents \textbf{the first comprehensive study on automated urban incivility captioning}, with the following key contributions:
+	
+	\begin{enumerate}
+		\item \textbf{Introducing the Urban Incivility Captioning Task}: We formally define and establish urban incivility captioning as a novel research problem at the intersection of computer vision, natural language processing, and urban computing. Unlike prior work focused on classification or detection, our approach emphasizes \emph{contextual description} that captures both visual evidence and civic implications.
+		
+		\item \textbf{The Urban Incivility in Context (UICO) Dataset}: We construct and release the first large-scale, expert-annotated UICO dataset, comprising 37,844 high-fidelity image-text pairs with granular civic annotations. Each sample includes detailed descriptions that explicitly connect visual evidence to specific normative violations, providing an essential benchmark for this emerging research direction.
+		
+		\item \textbf{The UIFormer Architecture}: We propose a novel vision-language framework specifically designed for civic semantic understanding. Our architecture introduces two core innovations:\\
+		\quad • An MFM module that adaptively fuses hierarchical visual features across layers of a vision backbone, preserving both global semantic context and local structural details essential for detecting subtle norm violations.\\
+		\quad • An MDDC Transformer encoder that enhances feature propagation and contextual reasoning through dense cross-layer connections, enabling robust interpretation of complex urban scenes.
+		
+		\item \textbf{Comprehensive Benchmark Establishment}: Through extensive experiments on the UICO dataset, we establish the first performance benchmarks for urban incivility captioning. Our results demonstrate that UIFormer significantly outperforms existing captioning models across both standard metrics and civic-relevant evaluations, validating the necessity of specialized architectures for this domain.
+	\end{enumerate}
+	
+	Our work represents a significant departure from conventional urban scene understanding by shifting the focus from \emph{what is present} to \emph{what is problematic}. By bridging the gap between visual perception and civic semantics, we provide not only a technical framework for automated urban governance but also a foundation for future research in normative visual understanding. The proposed approach has direct implications for smart city applications including automated violation reporting, civic education, and data-driven urban policy making.
+	
+	The remainder of this paper is organized as follows: Section~II reviews the related work. Section~III details the UICO dataset. Section~IV elaborates on the proposed UIFormer framework. Section~V presents experimental evaluations and analyses. Section~VI concludes this article.
+	
+	\section{Related Work}
+	
+	Our research integrates advances from three interconnected fields: multimodal urban intelligence, image-text dataset curation, and image captioning architectures. This section synthesizes foundational and contemporary works to contextualize our contributions, delineate the current state of the art, and identify the specific gaps that our proposed framework aims to address.
+	
+	
+	
+	
+	\subsection{Multimodal Urban Intelligence}
+	
+	The field of urban computing has undergone a significant evolution, shifting from static, sensor-driven quantification toward dynamic semantic interpretation empowered by foundation models. Initial methodologies predominantly employed computer vision techniques to establish correlations between the physical appearance of urban spaces and perceptual attributes such as safety, livability, or socioeconomic status \cite{dubey2016deep, ordonez2014learning}. The recent emergence of Urban Foundation Models (UFMs) and Large Language Models (LLMs) has catalyzed a new paradigm focused on deciphering complex spatio-temporal dependencies and inferring high-level urban indicators through semantic reasoning \cite{zhang2024urban}. For example, models like UrbanCLIP integrate web-sourced textual knowledge with visual data for enhanced urban profiling \cite{yan2024urbanclip}. However, a critical examination reveals a persistent tension between data granularity and reasoning depth. Reliance on inherently noisy, web-mined text often introduces hallucinations and homogenization artifacts, thereby compromising the reliability and fidelity of synthesized urban descriptions \cite{hao2025urbanvlp}.
+	
+	Concurrently, the potential of Multimodal Large Language Models (MLLMs) to function as autonomous urban agents is a subject of active investigation. Models such as UrbanGPT and UniST demonstrate promising capabilities in spatio-temporal prediction through instruction tuning \cite{li2024urbangpt, yuan2024unist}. Nevertheless, systematic evaluations via benchmarks like CityBench and USTBench expose significant limitations, particularly in tasks requiring sophisticated spatial logic, long-horizon planning, and cross-view consistency \cite{feng2024citybench, lai2025ustbench, zhou2025urbench}. Furthermore, approaches concentrating exclusively on either macro-level urban patterns or isolated micro-level street views frequently fail to reconcile the inherent biases and information gaps present in unimodal data sources \cite{chen2024profiling, hao2025urbanvlp}. This landscape underscores a critical need for a unified, context-aware framework capable of synthesizing multi-granular visual semantics with the nuanced, human-centric understanding requisite for actionable urban intelligence \cite{he2025urbanfeel}. Our work directly addresses this gap by introducing a vision-language model specifically engineered for the complex task of generating contextual descriptions of urban incivility, a critical advancement toward interpretable and administratively relevant urban scene understanding.
+	
+	\subsection{Image-Text Datasets}
+	
+	The development of image-text datasets has progressed along two complementary axes: the scalable aggregation of paired multimodal data and the expansion of captioning objectives toward deeper semantic inference. Foundational efforts such as SBU Captions and the Flickr series established initial paradigms using web-harvested or crowd-sourced annotations; however, their constrained visual and linguistic diversity limits model generalization \cite{ordonez2011im2text, hodosh2013framing, young2014image}. The MS-COCO dataset represented a significant advance in scene complexity and annotation density, though its primary focus on common object categories inherently biases learned representations toward frequently occurring visual concepts \cite{lin2014microsoft}. Subsequent initiatives prioritized scale and source variety. Datasets like Conceptual Captions and CC12M employed automated, relaxed collection pipelines to achieve web-scale coverage, often at the expense of introducing semantic noise and weakening image-text correspondence \cite{sharma2018conceptual, changpinyo2021conceptual}. Similarly, the multilingual WIT dataset provides encyclopedic breadth but suffers from long-tail sparsity and stylistic heterogeneity, which pose challenges for consistent multimodal training \cite{srinivasan2021wit}.
+	
+	Parallel research has critically re-examined the objectives of image-text alignment, advocating a move beyond surface-level correspondence toward genuine semantic inference. Studies employing ranking-based formulations and denotation-driven similarity metrics have demonstrated the insufficiency of lexical overlap alone for capturing visual meaning \cite{hodosh2013framing, young2014image}. Specialized benchmarks, including nocaps and TextCaps, have further revealed fundamental limitations in contemporary captioning systems, particularly concerning novel concept recognition and the integration of scene text into coherent narratives \cite{agrawal2019nocaps, sidorov2020textcaps}.
+	
+	Despite these substantial advancements, a pronounced void exists in datasets that capture situated civic environments. Current corpora largely lack systematic annotations for subtle behavioral cues, regulatory indicators, spatial semantics, and the normative frameworks essential for compliance-oriented reasoning. This omission creates a significant bottleneck for research aiming to bridge visual perception with actionable civic intelligence. In direct response to this need, we introduce the UICO dataset, a large-scale, expert-annotated resource specifically designed to support the nuanced multimodal understanding of urban incivility within authentic governance contexts.
+	
+	
+	
+	\subsection{Image Captioning Architectures}
+	
+	Advances in image captioning have been driven by the co-evolution of visual encoding strategies and sequence generation mechanisms. The foundational encoder-decoder paradigm, which integrated Convolutional Neural Network (CNN) features with recurrent decoders, established initial competency but was constrained by fixed receptive fields, thereby limiting fine-grained visual reasoning \cite{vinyals2015show, 2016mscoco}. The introduction of attention mechanisms addressed this limitation by enabling dynamic, content-aware alignment between visual regions and linguistic units. These mechanisms evolved from adaptive formulations to more sophisticated meta-attentive designs that introspectively evaluate their own relevance scores \cite{lu2017knowing, huang2019attention}. A key underlying assumption in many such approaches is the existence of stable region-word mappings, an assumption challenged by more flexible adaptive-time alignment frameworks \cite{huang2019adaptively}.
+	
+	The shift toward object-centric encoders, epitomized by bottom-up attention, grounded language generation in semantically salient regions but introduced a dependency on external object detection systems \cite{anderson2018bottom, 8630068, 9279262}. The advent of Transformer-based architectures superseded recurrent networks with global self-attention, enabling deeper and more direct multimodal integration \cite{vaswani2017attention, cornia2020meshed}. To address the lack of background information in region features, the Double-Stream Position Learning Transformer Network (DSPLTN) introduces complementary patch features with convolutional position learning, synthesizing local and global visual cues \cite{jiang2022doublestream}. Similarly, the De-Confounding Feature Fusion Transformer Network (DFFTNet) incorporates a distance-enhanced feature expansion module and causal adjustment to eliminate visual-semantic confusion caused by spurious correlations \cite{cao2025deconfounding}. Nonetheless, vanilla grid-based Vision Transformers can still suffer from spatial information degradation, prompting further enhanced variants that incorporate local-sensitive reasoning and higher-order attention mechanisms \cite{ma2023towards, zeng2022s2, luo2021dual, pan2020x, wang2023cropcap}. More recently, compact bidirectional architectures have been proposed to exploit both past and future context during decoding, demonstrating that sentence-level ensemble and parameter sharing contribute more than explicit interaction mechanisms \cite{11474636}.
+	
+	Contemporary trends include one-stage architectures that challenge traditional two-stage pipelines and methods that leverage large-scale vision-language models like CLIP as semantic priors for caption generation \cite{wang2022osic, 10659916}. On the evaluation front, the DARTScore metric formulates video caption evaluation as a dual-reconstruction problem, assessing faithfulness and comprehensiveness without heavy reference reliance \cite{chen2024dartscore}. Reinforcement learning techniques have also been employed to directly optimize task-specific metrics such as CIDEr; however, they risk amplifying inherent dataset biases rather than improving genuine semantic fidelity \cite{rennie2017self}. Despite these progressive innovations, state-of-the-art captioning systems continue to grapple with several persistent challenges. These include the incomplete and suboptimal fusion of complementary local detail and global contextual visual cues, the inadequate modeling of the distinction between visually grounded tokens and abstract linguistic concepts, and limited robustness when confronted with the complex, heterogeneous scenes characteristic of real-world environments. These shortcomings motivate the development of novel architectures capable of enhanced structural reasoning, adaptive multi-level semantic integration, and more faithful visual-linguistic alignment. The design of our proposed UIFormer framework is explicitly guided by these objectives.
+	
+	
+	
+	
+	\begin{figure*}[ht!]
 		\centering
-		\subfloat[Grid Features]{
-			\includegraphics[width=\linewidth]{./figs/grid_visualization.pdf}
-			\label{fig:grid}
+		\captionsetup{justification=justified}
+		\subfloat[Top 20 high-frequency adjectival tokens\label{fig:top20_adj}]{
+			\includegraphics[width=0.9\linewidth]{figs/top_20_adjectives.pdf}
 		}
-	\end{minipage}
-	\vspace{0.2cm}
-	% ----------- 第二行：单独一列 -----------
-	\begin{minipage}{0.45\columnwidth}
+		\vspace{-0.1em}
+		\subfloat[Top 20 high-frequency verbal tokens\label{fig:top20_verbs}]{
+			\includegraphics[width=0.9\linewidth]{figs/top_20_verbs.pdf}
+		}	
+		\caption{Quantitative Semantic Validation of the UICO Dataset Text Corpus. The statistical distribution of high-frequency linguistic features demonstrates the dataset's specific focus on non-normative urban behavior and environmental disorder, distinguishing it from conventional scene description corpora.}
+		\label{fig:top20_adj_verbs}
+	\end{figure*}
+	
+	
+	\begin{figure}[ht!]
 		\centering
-		\subfloat[Vanilla Vision Bakbone]{
-			\includegraphics[width=\linewidth]{./figs/vision_backbone.pdf}
-			\label{fig:vision_backbone}
-		}
-	\end{minipage}
-	\hspace{0.2cm}
-	\vspace{0.4cm}
-	\begin{minipage}{0.45\columnwidth}
+		\includegraphics[width=0.9\linewidth]{figs/dataset_wordcloud.pdf}
+		\captionsetup{justification=justified}
+		\caption{Word cloud visualization of the UICO dataset vocabulary. High-frequency terms are rendered in darker colors following the Viridis colormap, revealing the dataset's semantic focus on vehicular violations, spatial disorder, and environmental degradation.} 
+		\label{fig:dataset_wordcloud}
+	\end{figure}
+	
+	
+	\begin{figure}[ht!]
 		\centering
-		\subfloat[Vision Bakbone with MFM]{
-			\includegraphics[width=\linewidth]{./figs/vision_backbone_mfm.pdf}
-			\label{fig:vision_backbone_mfm}
+		\includegraphics[width=0.9\linewidth]{figs/length_distribution.pdf}
+		\captionsetup{justification=justified}
+		\caption{Caption length distribution of the UICO dataset. The histogram displays word count frequency with kernel density estimation (KDE) overlay. Dashed red and dotted green lines indicate mean and median values, respectively.} 
+		\label{fig:length_distribution}
+	\end{figure}
+	
+	
+	\begin{figure}[t]
+		\centering
+		\subfloat[Distribution across Functional Point Type Categories\label{fig:point_type}]{
+			\includegraphics[width=0.9\columnwidth]{./figs/Point_type.pdf}
+		}\\[0.0cm]
+		\subfloat[Distribution across Official Inspection Criteria Taxonomy\label{fig:inspection_criterias}]{
+			\includegraphics[width=0.9\columnwidth]{./figs/Inspection_criteria.pdf}
 		}
-	\end{minipage}
+		
+		%	\vspace{0.1cm}
+		\caption{Governance-Centric Distribution of Visual Question Answering (VQA) Annotations. This analysis validates UICO's utility for context-aware urban intelligence by mapping incivility instances to administrative categories and functional spatial zones.}	
+		\label{fig:pie}
+		
+		%	\vspace{-0.3cm}
+	\end{figure}
+	
+	
+	
+	\begin{figure*}[t]
+		\centering
+		\captionsetup{justification=justified}
+		\footnotesize
+		\setlength{\tabcolsep}{6pt}
+		\renewcommand{\arraystretch}{1.15}
+		
+		\begin{tabular}{cccc}
+			% ---------------- Row 1 ----------------
+			\begin{minipage}[t]{0.21\textwidth}
+				\centering
+				\includegraphics[width=\linewidth]{figs/CCMC_val_000000022259.pdf}\\[3pt]
+				\raggedright
+				\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Administrative village new era civilization practice station.\\ 
+				\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ \textbf{A2:} Service display.
+			\end{minipage}
+			&
+			\begin{minipage}[t]{0.21\textwidth}
+				\centering
+				\includegraphics[width=\linewidth]{figs/CCMC_val_000000023059.pdf}\\[3pt]
+				\raggedright
+				\textbf{Q1:} What is the \textbf{point type} of urban incivility 	scene in this image?\\ \textbf{A1:} Township.\\
+				\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ 
+				\textbf{A2:} Public order.
+			\end{minipage}
+			&
+			\begin{minipage}[t]{0.21\textwidth}
+				\centering
+				\includegraphics[width=\linewidth]{figs/CCMC_val_000000038901.pdf}\\[3pt]
+				\raggedright
+				\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Main and Secondary Roads / Commercial Street.\\
+				\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\ 
+				\textbf{A2:} Public order.
+			\end{minipage}
+			&
+			\begin{minipage}[t]{0.21\textwidth}
+				\centering
+				\includegraphics[width=\linewidth]{figs/CCMC_val_000000040371.pdf}\\[3pt]
+				\raggedright
+				\textbf{Q1:} What is the \textbf{point type} of urban incivility scene in this image?\\ \textbf{A1:} Township.\\
+				\textbf{Q2:} What is the \textbf{inspection criteria} of urban incivility scene in this image?\\
+				\textbf{A2:} Public environment.
+			\end{minipage}
+		\end{tabular}
+		\caption{Expert-Curated Visual Question Answering (VQA) Examples from the UICO Dataset. The figure demonstrates the structured annotation paradigm, where questions map visual evidence to specific administrative categories (Point Type) and regulatory classifications (Inspection Criteria) for urban incivility..}
+		\label{fig:examples_dataset}
+		\vspace{-0.25cm}
+	\end{figure*}
+	
+	
+	\section{UICO Dataset}
+	
+	A high-quality, domain-specific dataset is foundational for advancing research in contextual urban scene understanding. The task of urban incivility captioning presents a unique challenge, as it requires models to integrate fine-grained visual evidence with normative behavioral semantics. This complexity necessitates not only a dedicated data resource but also specialized model architectures for visual representation. Before elaborating on our proposed model, we first introduce the UICO dataset, a benchmark developed through direct collaboration with municipal authorities to ensure real-world relevance. The subsequent subsections detail the dataset's collection methodology, linguistic characteristics, and extended benchmarking utility.
+	
+	\subsection{Dataset Collection Methodology}
+	
+	The curation of the UICO dataset constitutes a fundamental departure from conventional practices in computer vision dataset construction. Diverging from methodologies reliant on web scraping or crowdsourcing, UICO is founded upon a direct, operational partnership with municipal governance bodies. To ensure the captured data embodies authentic, actionable intelligence for urban management, we collaborated with local municipal offices to integrate our collection framework into their established "Civilized City Management System." This platform, utilized for daily violation reporting and oversight, served as the primary conduit for data acquisition. This integration guarantees that each captured scenario reflects a genuine, administratively recognized civic infraction.
+	
+	The data collection pipeline was embedded within the routine workflows of professional field inspectors. Employing a custom-developed mobile application, these domain experts captured images in situ across heterogeneous urban functional zones. This expert-driven, on-site capture protocol ensures every image is a purposefully framed evidentiary record, rather than a random street view. Concurrent with image capture, inspectors authored detailed textual descriptions for each scene. This professional annotation protocol is paramount; it ensures captions transcend basic object detection (e.g., "a vehicle") to articulate the precise normative deviation (e.g., "a vehicle is illegally parked on a pedestrian sidewalk, obstructing access"). The final curated corpus comprises 37,844 high-fidelity image-text pairs.
+	
+	To uphold the data integrity requisite for a reliable benchmark, we implemented a rigorous, two-stage quality assurance protocol. A dedicated cohort of evaluators, independent of the field inspectors, reviewed all submissions via the management system. This process involved verifying the semantic fidelity of each textual description against its corresponding visual evidence and ensuring strict alignment with the official municipal violation taxonomy. This exhaustive, expert-led validation establishes UICO as a robust, high-quality resource for advancing research in normative visual understanding and automated urban governance.
+	
+	\subsection{Textual Corpus Analysis}
+	
+	A comprehensive linguistic analysis of UICO's 189,220 caption annotations was conducted to characterize its semantic focus and syntactic properties. We employed spaCy~\cite{honnibal2020spacy} for part-of-speech tagging, lemmatization, and tokenization. The analysis examines two complementary dimensions: lexical semantics, to validate the dataset's governance-oriented vocabulary, and syntactic complexity, to assess annotation consistency for stable model training.
+	
+	\subsubsection{Lexical Semantic Analysis}
+	The distribution of high-frequency lexical tokens confirms UICO's distinct semantic orientation toward civic norm violations, diverging sharply from the neutral, object-centric vocabulary prevalent in standard captioning datasets (e.g., MS-COCO).
+	
+	Adjectival Distribution: As shown in Fig.~\ref{fig:top20_adj}, the predominant adjectives explicitly denote normative violation (e.g., "unauthorized" (12,901), "illegal" (6,952), "disorderly" (3,749)) and environmental degradation (e.g., "messy" (6,424), "dirty" (4,390)). Contextual modifiers such as "residential" (8,030) and "commercial" (7,336) further attest to the geographic and functional diversity of the documented scenes.
+	
+	Verbal Distribution: Fig.~\ref{fig:top20_verbs} reveals the nature of the captured uncivil acts. Verbs indicating static obstruction ("park" (21,747), "pile" (7,858), "occupy" (6,880)) dominate, highlighting pervasive issues like illegal parking and public space occupation. Verbs denoting active degradation ("damage" (8,294), "scatter" (5,199)) point to vandalism and littering, while terms like "hang" (3,363) correlate with micro-violations such as disorderly cabling.
+	
+	Global Lexical Overview:  As shown in Fig.~\ref{fig:dataset_wordcloud}, a word cloud generated from the lemmatized corpus provides a holistic visualization, reinforcing the tripartite semantic structure: violation-centric terms, spatial-contextual descriptors, and environmental-state vocabulary. The Viridis colormap (with darker hues indicating higher frequency) offers an intuitive representation of term prominence.
+	
+	This lexical profile decisively shifts the semantic focus from what is present to what is problematic, thereby validating UICO's design for training models in behavioral and contextual reasoning.
+	
+	\subsubsection{Syntactic Complexity Analysis}
+	We analyzed the word count distribution across all captions to assess annotation consistency and descriptive complexity. As shown in Fig.~\ref{fig:length_distribution}, captions were tokenized using spaCy (filtering punctuation), and the distribution was visualized via a histogram with a Kernel Density Estimation (KDE) overlay.
+	
+	Descriptive Statistics: The distribution is unimodal and approximately symmetric, with a mean ($\mu$) of 12.66 words per caption, a median of 12 words, and a standard deviation ($\sigma$) of 4.79. The close alignment between the mean and median indicates a lack of significant skew, reflecting a highly consistent annotation protocol.
+	
+	Distribution Interpretation: The primary density lies within the 8–17 word range, representing the typical length for concise yet informative descriptions of incivility scenes. The lower tail (<5 words) corresponds to simple, unambiguous violations, while the upper tail (>30 words) encompasses complex scenes with multiple co-occurring infractions that necessitate detailed enumeration.
+	
+	This analysis confirms that UICO's textual annotations are not only semantically specialized but also syntactically consistent, providing a stable foundation for training language generation models.
+	
+	\subsection{Visual Question Answering for Governance-Aware Benchmarking}
+	
+	To extend UICO's utility beyond image captioning and establish a comprehensive benchmark for governance-aware reasoning, we construct a structured Visual Question Answering (VQA) subset. Each image is paired with two expert-defined questions probing administrative classification (Point Type) and regulatory violation assessment (Inspection Criteria), thereby transforming UICO into a multi-task testbed for actionable urban intelligence systems.
+	
+	\subsubsection{Analysis of Point Types (Spatial Context)}
+	The spatial distribution of incivility instances, as detailed in  Fig.~\ref{fig:point_type}, provides critical insights into the dataset's coverage across the urban-rural continuum and diverse functional zones.
+	
+	High-Density Residential Focus: Incivility is most frequently documented in "Residential Communities" (32.7\%), accurately reflecting real-world governance challenges where dense living environments concentrate public order and environmental maintenance issues.
+	
+	Urban-Rural Continuum: Significant coverage extends to "Townships" (20.4\%), "Administrative Villages" (4.4\%), and transportation corridors ("Main and Secondary Roads", 15.7\%). This strategic distribution ensures the dataset spans the full settlement hierarchy, effectively mitigating the metropolitan bias prevalent in conventional urban datasets and training models for broader geographical applicability.
+	
+	Functional Heterogeneity: A substantial proportion of instances (16.9\%) are captured in diverse public spaces aggregated under "Others", including markets, schools, and hospitals. This long‑tail distribution compels models to learn zone‑specific social norms, for example, distinguishing between acceptable commercial activity and unauthorized vending, or between typical hospital environs and improper obstructions.
+	
+	
+	\subsubsection{Analysis of Inspection Criteria (Regulatory Context)}
+	The categorical breakdown of violations, illustrated in Fig.~\ref{fig:inspection_criterias}, validates UICO's alignment with core urban governance frameworks and provides a nuanced taxonomy for model evaluation.
+	
+	Core Governance Concerns: The distribution is strongly skewed toward "Public Order" (43.2\%) and "Public Environment" (38.5\%). This directly operationalizes the "broken windows" theory in an AI benchmarking context, emphasizing the dataset's focus on behavioral disorder, such as illegal parking and unauthorized occupation, and environmental degradation, such as littering and uncleanliness. These constitute the primary levers of actionable urban management.
+	
+	Comprehensive Taxonomic Coverage: While less frequent, specialized categories such as "Infrastructure" (7.4\%) and "Service Display" (5.8\%) provide essential exemplars. These samples are critical for training models to detect structural damage, safety hazards, and regulatory non-compliance in public signage or advertising, ensuring robustness across the full spectrum of municipal inspection criteria.
+	
+	
+	This structured VQA framework, as exemplified by the annotation samples in Fig.~\ref{fig:examples_dataset}, elevates UICO from a descriptive captioning benchmark to a comprehensive evaluation suite for context-aware urban perception. It mandates that models not only generate fluent descriptions of visual content but also perform the essential relational reasoning to classify where (spatial context) and why (regulatory context) an observed scene constitutes a specific administrative violation. This dual reasoning capability is fundamental for deploying reliable AI systems in real-world governance pipelines.
+	
+	\section{Network Architecture}
+	
+	\begin{figure*}[ht!]
+		\centering
+		\captionsetup{justification=justified}
+		\includegraphics[width=0.93\linewidth]{figs/framework.pdf}
+		\caption{Architecture of the Proposed UIFormer Framework.} 
+		\label{fig:framework}
+	\end{figure*}
+	
+	This section delineates the architecture of our proposed framework, which is designed to generate semantically rich and contextually aware descriptions of urban incivility scenes. The model addresses two key limitations of standard Transformers for this task: the insufficient exploitation of multi-scale visual features and the restricted flow of information across decoder layers. As illustrated in \figurename~\ref{fig:framework}, our solution integrates two novel components: an MFM module and an MDDC Transformer decoder. The framework utilizes frozen, large-scale vision-language models (CLIP or DINOv2) as visual encoders. The overall pipeline first extracts and fuses multi-layer visual tokens via the MFM module, then refines the combined contextual information using the MDDC decoder for autoregressive caption generation.
+	
+	\begin{figure}[t]
+		\centering
+		\captionsetup{justification=justified}
+		\begin{minipage}{0.4\columnwidth}
+			\centering
+			\subfloat[Region Features]{
+				\includegraphics[width=\linewidth]{./figs/region_visualization.pdf}
+				\label{fig:region}
+			}
+		\end{minipage}
+		\hspace{0.2cm}
+		\begin{minipage}{0.4\columnwidth}
+			\centering
+			\subfloat[Grid Features]{
+				\includegraphics[width=\linewidth]{./figs/grid_visualization.pdf}
+				\label{fig:grid}
+			}
+		\end{minipage}
+		\vspace{0.2cm}
+		% ----------- 第二行：单独一列 -----------
+		\begin{minipage}{0.45\columnwidth}
+			\centering
+			\subfloat[Vanilla Vision Bakbone]{
+				\includegraphics[width=\linewidth]{./figs/vision_backbone.pdf}
+				\label{fig:vision_backbone}
+			}
+		\end{minipage}
+		\hspace{0.2cm}
+		\vspace{0.4cm}
+		\begin{minipage}{0.45\columnwidth}
+			\centering
+			\subfloat[Vision Bakbone with MFM]{
+				\includegraphics[width=\linewidth]{./figs/vision_backbone_mfm.pdf}
+				\label{fig:vision_backbone_mfm}
+			}
+		\end{minipage}
+		\vspace{-0.2in}
+		\caption{Comparison of visual feature encoding paradigms: (a) region features, (b) vanilla vision bakbone, (c)  and (d) vision bakbone with MFM for granularity-aware synthesis.}
+		\label{fig:region_grid_mfm}
+	\end{figure}
+	
+	\subsection{Multi-level Feature Merging}
+	
+	Urban imagery presents a confluence of visual information across multiple scales, encompassing fine-grained objects (e.g., cigarette butts, debris), medium-scale structures (e.g., bicycles, trash bins), and global contextual layouts (e.g., sidewalks, road intersections). A representation derived from a single network layer is insufficient to capture this hierarchical complexity. The visual features from shallow layers of a vision backbone typically retain finer local details such as texture and shape, while those from deeper layers capture higher-level semantics; these complementary representations are both essential for understanding complex urban scenes. To harness this multi-level information, we introduce the Multi-level Feature Merging (MFM) module, which performs a structured fusion of features extracted from all layers of a pre-trained Vision Transformer.
+	
+	As illustrated in \figurename~\ref{fig:region_grid_mfm}, conventional paradigms for visual feature encoding, such as region-based or grid-based methods (\figurename~\ref{fig:region_grid_mfm}a, \figurename~\ref{fig:region_grid_mfm}b), or using a single layer from a vanilla vision backbone (\figurename~\ref{fig:region_grid_mfm}c), may fail to synthesize granularity-aware representations. Our MFM module, applied to the vision backbone (\figurename~\ref{fig:region_grid_mfm}d), addresses this by aggregating and aligning features across the network depth, enabling a more comprehensive scene understanding crucial for describing nuanced urban incivilities.
+	
+	The necessity of such cross‑layer fusion is further substantiated by the diagnostic analysis presented in \figurename~\ref{fig:cos_similarity}. The cosine‑similarity heatmap quantifies the representational disparity among visual tokens extracted from shallow and deep layers of pre‑trained CLIP and DINOv2 encoders. The observed variation in feature distributions across layers underscores the challenge of directly aggregating multi‑level features and empirically motivates the adaptive alignment mechanism employed in MFM.
+	
+	\begin{figure}[ht!]
+		\centering
+		\captionsetup{justification=justified}
+		\includegraphics[width=1.0\linewidth]{figs/cos_similarity.pdf}
+		\caption{Diagnostic Visualization of Inter‑Model and Inter‑Layer Feature Congruence. The cosine‑similarity heatmap quantifies the representational disparity between visual tokens extracted from shallow and deep layers of pre‑trained CLIP and DINOv2 encoders.} 
+		\label{fig:cos_similarity}
+	\end{figure}
+	
+	\subsubsection{Multi-Level Feature Extraction} For a CLIP ViT-L encoder, we extract the patch token sequences from all \(L\) layers (where \(L=24\)). Let the output from the \(i\)-th layer be denoted as \(v_i \in \mathbb{R}^{N \times D}\), where \(N\) is the number of patches and \(D\) is the feature dimensionality. The complete set of layer-wise features is represented as:
+	
+	\begin{equation}
+		\mathcal{V} = [v_1, v_2, \dots, v_{L}].
+	\end{equation}
+	These features collectively span a spectrum from local structural patterns to global semantic concepts.
+	
+	\subsubsection{Feature Normalization and Alignment} Direct aggregation of \(\mathcal{V}\) is hindered by distributional shifts across layers. To achieve a coherent fusion, the MFM module first applies Layer Normalization (LN) to each \(v_i\) independently, stabilizing their scales. Each normalized feature sequence is then projected via a linear layer into a shared subspace. A learnable scalar weight \(\lambda_i\) is assigned to each layer to adaptively calibrate its contribution to the final fused representation. The unified feature \(v\) is computed as:
+	
+	
+	\begin{equation}
+		v = \sum_{i=1}^{L} \lambda_i \cdot \mathrm{Linear}(\mathrm{LN}(v_i)).
+	\end{equation}
+	This operation effectively aligns the heterogeneous multi-level representations into a consolidated feature space, yielding \(v \in \mathbb{R}^{N \times D'}\), which is subsequently projected to match the decoder's input dimension.
+	
+	
+	
+	
+	\begin{figure}[t]
+		\centering
+		\captionsetup{justification=justified}
+		\subfloat[\text{Vanilla Transformer Encoder}]{
+			\includegraphics[width=0.8\columnwidth]{./figs/mddc_11.pdf}
+		}\\[0.0cm]
+		\subfloat[MDDC Encoder]{
+			\includegraphics[width=0.8\columnwidth]{./figs/mddc_12.pdf}
+		}
+		\vspace{0.1cm}
+		\caption{Comparative Analysis of Feature Propagation Mechanisms. The figure contrasts (a) the Conventional Cascaded Encoder, with sequential layer-wise connections, against (b) the MDDC Encoder, which introduces multiway dense connections to support adaptive cross-layer feature reuse and alleviate information decay in deep networks.}
+		\label{fig:mddc_comparison}
+		\vspace{-0.3cm}
+	\end{figure}
+	
+	\subsection{Multiway Dynamic Dense Connections}
+	
+	To address the constrained cross-layer information flow in standard Transformer decoders, in which each layer interacts exclusively with the output of its immediate predecessor, we propose the MDDC mechanism. Inspired by architectures such as MUDDFormer~\cite{xiao2025muddformer}, MDDC strengthens representational propagation by introducing dense, vertical connections across layers.
+	
+	The core component is the Depth-wise Aggregate (DA) module. As depicted in \figurename~\ref{fig:mddc_comparison}, the DA module performs dynamic, cross-layer aggregation separately for the four fundamental data streams within a Transformer block: the Query (\(Q\)), Key (\(K\)), Value (\(V\)), and the residual (\(R\)) streams. For the \(i\)-th decoder layer, let \(\mathbf{z}_{:i} = [z_0, z_1, \dots, z_{i-1}]\) denote the hidden states from all preceding layers (with \(z_0\) being the visual embedding from MFM). The DA modules generate the input for the current layer as:
+	\begin{equation} \label{eq:multiway_dense}
+		\begin{gathered}
+			z_{i}^{Q}, z_{i}^{K}, z_{i}^{V}, z_{i}^{R}= \\
+			\mathrm{DA}_{i}^{Q}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{K}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{V}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{R}(\mathbf{z}_{:i}).
+		\end{gathered}
+	\end{equation}
+	This stream-specific aggregation establishes more direct and flexible pathways for information propagation across depths, mitigating issues like representation collapse and enhancing feature expressiveness.
+	
+	Given the high-quality visual embeddings \(z\) provided by the MFM module, we feed them directly into the MDDC-enhanced decoder. The aggregated streams are processed by a multi-input Transformer block \(\operatorname{B}'(\cdot)\):
+	\begin{equation} \label{eq:multi-input_block}
+		\begin{gathered}
+			z_{\text{A}}' = \operatorname{MHA}(\operatorname{LN}(z^Q), \operatorname{LN}(z^K), \operatorname{LN}(z^V)) + z^R, \\
+			\operatorname{B}'(z^Q, z^K, z^V, z^R) = \operatorname{FFN}(\operatorname{LN}(z_{\text{A}}')) + z_{\text{A}}'.
+		\end{gathered}
+	\end{equation}
+	
+	The complete encoding process through \(L\) decoder layers can be formalized as:
+	\begin{equation} \label{eq:multiway_densformer}
+		\begin{gathered}
+			\overline{z}_0^Q = \overline{z}_0^K = \overline{z}_0^V = \overline{z}_0^R = z_0, \\
+			z_i = \operatorname{B}'_i(\overline{z}_{i-1}^Q, \overline{z}_{i-1}^K, \overline{z}_{i-1}^V, \overline{z}_{i-1}^R), \\
+			\overline{z}_i^Q, \dots, \overline{z}_i^R = \operatorname{DA}_i^Q(z_{:i}), \dots, \operatorname{DA}_i^R(z_{:i}), \quad i \in [1, L], \\
+			\operatorname{MDDCEncoder}(z) = \overline{z}_L^R.
+		\end{gathered}
+	\end{equation}
+	By establishing multiway dense connections, the MDDC mechanism significantly increases the bandwidth for cross-layer communication, fostering deeper integration of visual and linguistic contexts for superior caption generation.
+	
+	\begin{table*}[t]\normalsize
+		\centering
+		\captionsetup{justification=justified}
+		\caption{Performance comparison on the UICO benchmark test split (3500 images, 5 reference captions each). B@$N$, M, R, C, and S denote BLEU@$N$, METEOR, ROUGE-L, CIDEr, and SPICE, respectively. $S_m$ is the composite score (mean of B@4, M, R, C, S); $S^*_m$ is the SPICE-excluded composite (mean of B@4, M, R, C). \textbf{Bold} and \underline{underlined} values indicate the best and second-best results, respectively. All metrics reported in \% (0--100 scale). VLMs are QLoRA fine-tuned on UICO training set (1 epoch, $r{=}16$, $\alpha{=}32$).}
+		\label{tab:results}
+		\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l c c c c c c c c c c}
+			\toprule
+			Methods & B@1  & B@2  & B@3  & B@4  & M    & R    & C     & S    & $S^*_m$ & $S_m$ \\
+			\midrule
+			\multicolumn{11}{c}{\textit{Traditional Image Caption Model}} \\
+			\midrule
+			SCST~\cite{rennie2017self}                  & 41.56 & 31.84 & 26.61 & 23.12 & 18.98 & 37.24 &  93.17 & 15.45 & 43.13 & 37.59 \\
+			ADP-ATT~\cite{lu2017knowing}                & 42.12 & 32.09 & 26.93 & 23.42 & 19.20 & 38.15 &  96.84 & 16.26 & 44.40 & 38.77 \\
+			Up-Down~\cite{anderson2018bottom}           & 42.18 & 32.73 & 27.72 & 24.33 & 20.12 & 38.80 & 100.82 & 16.71 & 46.02 & 40.16 \\
+			AoANet~\cite{huang2019attention}            & 42.74 & 33.51 & 28.53 & 25.09 & 20.48 & 39.50 & 103.13 & 16.92 & 47.05 & 41.02 \\
+			AAT~\cite{huang2019adaptively}              & 39.00 & 29.04 & 23.65 & 20.00 & 18.80 & 37.61 &  92.95 & 16.29 & 42.32 & 37.11 \\
+			Transformer~\cite{vaswani2017attention}     & 41.18 & 31.56 & 26.29 & 22.94 & 19.64 & 38.30 &  94.72 & 16.56 & 43.90 & 38.43 \\
+			M$^{2}$-Transformer~\cite{cornia2020meshed} & \underline{42.88} & 33.27 & 28.01 & 24.42 & 19.91 & 38.46 &  97.87 & 16.04 & 45.16 & 39.34 \\
+			X-LAN~\cite{pan2020x}                       & 42.86 & \underline{33.56} & 28.35 & 24.69 & \underline{20.90} & \underline{40.49} & 105.95 & 18.10 & 47.98 & 41.99 \\
+			DLCT~\cite{luo2021dual}                     & 35.34 & 27.64 & 23.63 & 21.18 & 17.29 & 33.42 & \textbf{155.96} & \textbf{23.28} & \underline{56.96} & \underline{50.23} \\
+			RSTNet~\cite{zhang2021rstnet}               & 34.08 & 26.34 & 22.50 & 20.26 & 16.37 & 31.46 & 145.91 & 21.50 & 53.50 & 47.10 \\
+			CAVP~\cite{zha2019context}                  & 36.04 & 25.81 & 20.51 & 17.20 & 20.49 & 35.42 &  77.08 &  3.34 & 37.39 & 30.55 \\
+			S$^{2}$-Transformer~\cite{zeng2022s2}       & 34.07 & 26.58 & 22.83 & 20.59 & 16.42 & 31.73 & \underline{153.84} & \underline{22.10} & 55.64 & 48.93 \\
+			LSTNet~\cite{ma2023towards}                 & 31.27 & 23.45 & 19.38 & 16.85 & 15.81 & 30.93 & 126.16 & 20.52 & 47.20 & 41.78 \\
+			MLSAT~\cite{xu2025multi}                    & 28.45 & 19.70 & 15.02 & 12.19 & 13.13 & 26.74 &  75.76 & 15.90 & 31.96 & 28.74 \\
+			\midrule
+			\multicolumn{11}{c}{\textit{Vision-Language Models (QLoRA)}} \\
+			\midrule
+			LLaVA-1.5-7B~\cite{liu2024improved}         &  7.69 &  4.89 &  3.34 &  2.44 & 10.08 & 13.32 &   0.06 & 11.68 &  6.48 &  7.52 \\
+			Qwen3-VL-8B~\cite{bai2025qwen3}             & 25.79 & 16.45 & 11.22 &  8.13 & 11.46 & 24.88 &  50.95 & 14.67 & 23.86 & 22.02 \\
+			InternVL3.5-8B~\cite{wang2025internvl3}     & 25.40 & 15.85 & 11.04 &  8.35 & 11.33 & 24.27 &  49.33 & 13.52 & 23.32 & 21.36 \\
+			\midrule
+			UIFormer(Ours) & \textbf{50.51} & \textbf{41.82} & \textbf{36.69} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & 126.55 & 20.62 & \textbf{57.76} & \textbf{50.33} \\
+			\bottomrule
+		\end{tabular*}
+	\end{table*}
+	
+	
+	\subsection{Training Objectives}
+	Our model is trained following a two-stage strategy commonly adopted in captioning benchmarks. The first stage employs the cross-entropy (XE) loss for maximum likelihood estimation. Given the model parameters \(\theta\), an input image \(I\), and the corresponding ground-truth caption sequence \(y_{1:T}^*\), the XE loss is:
+	\[
+	L_{\text{XE}}(\theta) = -\sum_{t=1}^{T} \log \left( p(y_{t}^{*} \mid y_{1:t-1}^{*}, I, \theta) \right).
+	\]
+	
+	In the second stage, we utilize self-critical (SC) sequence training ~\cite{rennie2017self} to directly optimize the CIDEr-D score, a metric well-aligned with human judgment. This is formulated as a reinforcement learning problem with the CIDEr-D score as the reward. The gradient for this stage is approximated as:
+	\[
+	\nabla_{\theta} L_{\text{SC}}(\theta) \approx -\frac{1}{n} \sum_{i=1}^{n} \left( r(y_{1:T}^{i}) - b \right) \nabla_{\theta} \log p_{\theta}(y_{1:T}^{i}),
+	\]
+	where \(n\) is the number of sequences sampled via beam search, \(r(\cdot)\) is the CIDEr-D scoring function, \(y_{1:T}^{i}\) is the \(i\)-th sampled sequence, and \(b = \frac{1}{n}\sum_{i} r(y_{1:T}^{i})\) is the baseline reward used to reduce variance. This combined objective ensures robust learning convergence and drives the model towards generating captions of high qualitative and quantitative merit.
+	\begin{table}[t]
+		\centering
+		\caption{VLM scaling on UICO (3500 test images). $S_m$ = mean of B@4, M, R, C, S; $S^*_m$ = mean of B@4, M, R, C (SPICE-excluded).}
+		\label{tab:vlm_scaling}
+		\small
+		\setlength{\tabcolsep}{6pt}
+		\resizebox{\linewidth}{!}{
+			\begin{tabular}{@{}llccc@{}}
+				\toprule
+				& Setting & B@4 & $S^*_m$ & $S_m$ \\
+				\midrule
+				\multirow{4}{*}{LLaVA-1.5-7B~\cite{liu2024improved}}   & Zero-Shot          & 0.45 & 4.42 & 4.10 \\
+				& Few-Shot ($k{=}1$) & 0.19 & 4.05 & 3.41 \\
+				& Few-Shot ($k{=}3$) & 1.45 & 6.97 & 6.07 \\
+				& QLoRA               & 2.44 & 6.48 & 7.52 \\
+				\midrule
+				\multirow{4}{*}{Qwen3-VL-8B~\cite{bai2025qwen3}}    & Zero-Shot          & 1.81 & 7.40 & 6.86 \\
+				& Few-Shot ($k{=}1$) & 2.22 & 7.93 & 7.29 \\
+				& Few-Shot ($k{=}3$) & 2.25 & 7.98 & 7.21 \\
+				& QLoRA               & 8.13 & 23.86 & 22.02 \\
+				\midrule
+				\multirow{4}{*}{InternVL3.5-8B~\cite{wang2025internvl3}} & Zero-Shot          & 0.83 & 5.01 & 4.58 \\
+				& Few-Shot ($k{=}1$) & 2.69 & 9.79 & 8.93 \\
+				& Few-Shot ($k{=}3$) & 3.20 & 11.05 & 10.10 \\
+				& QLoRA               & 8.35 & 23.32 & 21.36 \\
+				\midrule
+				\multicolumn{2}{l}{UIFormer (Ours)} & \textbf{32.92} & \textbf{57.76} & \textbf{50.33} \\
+				\bottomrule
+			\end{tabular}
+		}
+	\end{table}
+	
+	\begin{table}[t]
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.35em}
+		\caption{Breakdown of SPICE F-scores over various subcategories.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{lcccccc}
+					\toprule
+					& SPICE & Relation & Attribute & Size & Color & Object \\
+					\midrule
+					Up-Down~\cite{anderson2018bottom} & 16.71 & 6.37 & 12.44 & 13.58 & 6.34 & 26.18 \\
+					Transformer~\cite{vaswani2017attention} & 18.71 & 8.14 & 13.84 & \textbf{22.22} & 6.59 & 29.4 \\
+					\midrule
+					\textbf{UIFormer} & \textbf{20.52} & \textbf{10.15} & \textbf{15.70} & 17.28 & \textbf{12.78} & \textbf{30.88} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\vspace{-.3cm}
+		\label{tab:spice}
+	\end{table}
+	
+	\begin{table*}[t]\normalsize
+		\centering
+		\vspace{0.1in}
+		\captionsetup{justification=justified}
+		\caption{Ablation Study Validating the Architectural Contributions on the UICO Benchmark.}
+		\vspace{-0.0in}
+		\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c c c c c c c c c}
+			\toprule             
+			Baseline & MFM & MDDC & B@1  & B@2  & B@3  & B@4  & M    & R    & C     & S    \\	
+			\midrule
+			\CheckmarkBold & \XSolidBrush & \XSolidBrush & 44.72 &  34.48 & 28.83 & 24.88 & 20.79 & 40.47 & 99.78 & 18.30 \\
+			\CheckmarkBold & \CheckmarkBold & \XSolidBrush & 48.61 & 39.08 & 33.58 & 29.73 & 23.43 & 43.76 & 113.97 & 19.74 \\
+			\CheckmarkBold & \XSolidBrush & \CheckmarkBold & 46.00 & 36.36 & 30.89 & 27.08 & 22.15 & 42.17 & 108.13 & 19.52 \\
+			\midrule
+			\CheckmarkBold & \CheckmarkBold &\CheckmarkBold & \textbf{50.51} & \textbf{41.82} & \textbf{36.69} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
+			\bottomrule
+		\end{tabular*}
+		\vspace{-0.2in}
+		\label{tab:ablation}
+	\end{table*}
+	
+	\begin{figure*}[t!]
+		\centering
+		\captionsetup{justification=justified}
+		\footnotesize
+		\setlength{\tabcolsep}{6pt}
+		\renewcommand{\arraystretch}{1.15}
+		
+		\resizebox{\linewidth}{!}{
+			\begin{tabular}{cccc}
+				% ---------------- Row 1 ----------------
+				\begin{minipage}[t]{0.21\textwidth}
+					\centering
+					\includegraphics[width=\linewidth]{figs/CCMC_val_000000038922.pdf}\\[3pt]
+					\raggedright
+					\textbf{GT:} Damaged garbage bins on street sides.\\
+					\textbf{Transformer:} The lid of the trash can is missing.\\
+					\textbf{UIFormer:} The sign on the trash can outside the shen cheng health service center is damaged.
+				\end{minipage}
+				&
+				\begin{minipage}[t]{0.21\textwidth}
+					\centering
+					\includegraphics[width=\linewidth]{figs/CCMC_val_000000017105.pdf}\\[3pt]
+					\raggedright
+					\textbf{GT:} Improperly parked shared bicycles in front of the door.\\
+					\textbf{Transformer:} There is unauthorized parking of vehicles in front of the door.\\
+					\textbf{UIFormer:} There is a problem with bicycles from shared bike services being parked in a disorderly manner.
+				\end{minipage}
+				&
+				\begin{minipage}[t]{0.21\textwidth}
+					\centering
+					\includegraphics[width=\linewidth]{figs/CCMC_val_000000002856.pdf}\\[3pt]
+					\raggedright
+					\textbf{GT:} The bathroom is not cleaned in time.\\
+					\textbf{Transformer:} The faucet is broken.\\
+					\textbf{UIFormer:} The bathroom was not cleaned in a timely manner.
+				\end{minipage}
+				&
+				\begin{minipage}[t]{0.21\textwidth}
+					\centering
+					\includegraphics[width=\linewidth]{figs/CCMC_val_000000006136.pdf}\\[3pt]
+					\raggedright
+					\textbf{GT:} The bathroom is not cleaned in time.\\
+					\textbf{Transformer:} The trash can in front of the door is dirty.\\
+					\textbf{UIFormer:} The sign on the trash bin in building 1 is damaged.
+				\end{minipage}
+				
+			\end{tabular}
+		}
+		
+		\caption{Examples of captions generated by our model and the Transformer baseline, compared with ground-truth descriptions.}
+		\label{fig:qualitative_results}
+		\vspace{-0.25cm}
+	\end{figure*}
+	
+	\begin{figure}[ht!]
+		\centering
+		\includegraphics[width=0.6\linewidth]{figs/radar_backbone_comparison.pdf}
+		\captionsetup{justification=justified}
+		\caption{Captioning results of UIFormer using different vision backbone.} 
+		\label{fig:radar_backbone_comparison}
+	\end{figure}
+	
+	\section{Experiment}
+	In this section, we present extensive experiments to validate the merits of our proposed UIFormer model. We begin by evaluating its performance against state-of-the-art methods on the UICO benchmark, followed by ablation studies to quantify the contribution of each core component, and conclude with qualitative analyses that illustrate its descriptive capabilities. 
+	
 	\vspace{-0.2in}
-	\caption{Comparison of visual feature encoding paradigms: (a) region features, (b) vanilla vision bakbone, (c)  and (d) vision bakbone with MFM for granularity-aware synthesis.}
-	\label{fig:region_grid_mfm}
-\end{figure}
-
-\subsection{Multi-level Feature Merging}
-
-Urban imagery presents a confluence of visual information across multiple scales, encompassing fine-grained objects (e.g., cigarette butts, debris), medium-scale structures (e.g., bicycles, trash bins), and global contextual layouts (e.g., sidewalks, road intersections). A representation derived from a single network layer is insufficient to capture this hierarchical complexity. The visual features from shallow layers of a vision backbone typically retain finer local details such as texture and shape, while those from deeper layers capture higher-level semantics; these complementary representations are both essential for understanding complex urban scenes. To harness this multi-level information, we introduce the Multi-level Feature Merging (MFM) module, which performs a structured fusion of features extracted from all layers of a pre-trained Vision Transformer.
-
-As illustrated in \figurename~\ref{fig:region_grid_mfm}, conventional paradigms for visual feature encoding, such as region-based or grid-based methods (\figurename~\ref{fig:region_grid_mfm}a, \figurename~\ref{fig:region_grid_mfm}b), or using a single layer from a vanilla vision backbone (\figurename~\ref{fig:region_grid_mfm}c), may fail to synthesize granularity-aware representations. Our MFM module, applied to the vision backbone (\figurename~\ref{fig:region_grid_mfm}d), addresses this by aggregating and aligning features across the network depth, enabling a more comprehensive scene understanding crucial for describing nuanced urban incivilities.
-
-The necessity of such cross‑layer fusion is further substantiated by the diagnostic analysis presented in \figurename~\ref{fig:cos_similarity}. The cosine‑similarity heatmap quantifies the representational disparity among visual tokens extracted from shallow and deep layers of pre‑trained CLIP and DINOv2 encoders. The observed variation in feature distributions across layers underscores the challenge of directly aggregating multi‑level features and empirically motivates the adaptive alignment mechanism employed in MFM.
-
-\begin{figure}[ht!]
-	\centering
-	\captionsetup{justification=justified}
-	\includegraphics[width=1.0\linewidth]{figs/cos_similarity.pdf}
-	\caption{Diagnostic Visualization of Inter‑Model and Inter‑Layer Feature Congruence. The cosine‑similarity heatmap quantifies the representational disparity between visual tokens extracted from shallow and deep layers of pre‑trained CLIP and DINOv2 encoders.} 
-	\label{fig:cos_similarity}
-\end{figure}
-
-\subsubsection{Multi-Level Feature Extraction} For a CLIP ViT-L encoder, we extract the patch token sequences from all \(L\) layers (where \(L=24\)). Let the output from the \(i\)-th layer be denoted as \(v_i \in \mathbb{R}^{N \times D}\), where \(N\) is the number of patches and \(D\) is the feature dimensionality. The complete set of layer-wise features is represented as:
-
-\begin{equation}
-\mathcal{V} = [v_1, v_2, \dots, v_{L}].
-\end{equation}
-These features collectively span a spectrum from local structural patterns to global semantic concepts.
-
-\subsubsection{Feature Normalization and Alignment} Direct aggregation of \(\mathcal{V}\) is hindered by distributional shifts across layers. To achieve a coherent fusion, the MFM module first applies Layer Normalization (LN) to each \(v_i\) independently, stabilizing their scales. Each normalized feature sequence is then projected via a linear layer into a shared subspace. A learnable scalar weight \(\lambda_i\) is assigned to each layer to adaptively calibrate its contribution to the final fused representation. The unified feature \(v\) is computed as:
-
-
-\begin{equation}
-v = \sum_{i=1}^{L} \lambda_i \cdot \mathrm{Linear}(\mathrm{LN}(v_i)).
-\end{equation}
-This operation effectively aligns the heterogeneous multi-level representations into a consolidated feature space, yielding \(v \in \mathbb{R}^{N \times D'}\), which is subsequently projected to match the decoder's input dimension.
-
-
-
-
-\begin{figure}[t]
-	\centering
-	\captionsetup{justification=justified}
-	\subfloat[\text{Vanilla Transformer Encoder}]{
-		\includegraphics[width=0.8\columnwidth]{./figs/mddc_11.pdf}
-	}\\[0.0cm]
-	\subfloat[MDDC Encoder]{
-		\includegraphics[width=0.8\columnwidth]{./figs/mddc_12.pdf}
-	}
-	\vspace{0.1cm}
-	\caption{Comparative Analysis of Feature Propagation Mechanisms. The figure contrasts (a) the Conventional Cascaded Encoder, with sequential layer-wise connections, against (b) the MDDC Encoder, which introduces multiway dense connections to support adaptive cross-layer feature reuse and alleviate information decay in deep networks.}
-	\label{fig:mddc_comparison}
-	\vspace{-0.3cm}
-\end{figure}
-
-\subsection{Multiway Dynamic Dense Connections}
-
-To address the constrained cross-layer information flow in standard Transformer decoders, in which each layer interacts exclusively with the output of its immediate predecessor, we propose the MDDC mechanism. Inspired by architectures such as MUDDFormer~\cite{xiao2025muddformer}, MDDC strengthens representational propagation by introducing dense, vertical connections across layers.
-
-The core component is the Depth-wise Aggregate (DA) module. As depicted in \figurename~\ref{fig:mddc_comparison}, the DA module performs dynamic, cross-layer aggregation separately for the four fundamental data streams within a Transformer block: the Query (\(Q\)), Key (\(K\)), Value (\(V\)), and the residual (\(R\)) streams. For the \(i\)-th decoder layer, let \(\mathbf{z}_{:i} = [z_0, z_1, \dots, z_{i-1}]\) denote the hidden states from all preceding layers (with \(z_0\) being the visual embedding from MFM). The DA modules generate the input for the current layer as:
-\begin{equation} \label{eq:multiway_dense}
-\begin{gathered}
-z_{i}^{Q}, z_{i}^{K}, z_{i}^{V}, z_{i}^{R}= \\
-\mathrm{DA}_{i}^{Q}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{K}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{V}(\mathbf{z}_{:i}),\;\mathrm{DA}_{i}^{R}(\mathbf{z}_{:i}).
-\end{gathered}
-\end{equation}
-This stream-specific aggregation establishes more direct and flexible pathways for information propagation across depths, mitigating issues like representation collapse and enhancing feature expressiveness.
-
-Given the high-quality visual embeddings \(z\) provided by the MFM module, we feed them directly into the MDDC-enhanced decoder. The aggregated streams are processed by a multi-input Transformer block \(\operatorname{B}'(\cdot)\):
-\begin{equation} \label{eq:multi-input_block}
-\begin{gathered}
-z_{\text{A}}' = \operatorname{MHA}(\operatorname{LN}(z^Q), \operatorname{LN}(z^K), \operatorname{LN}(z^V)) + z^R, \\
-\operatorname{B}'(z^Q, z^K, z^V, z^R) = \operatorname{FFN}(\operatorname{LN}(z_{\text{A}}')) + z_{\text{A}}'.
-\end{gathered}
-\end{equation}
-
-The complete encoding process through \(L\) decoder layers can be formalized as:
-\begin{equation} \label{eq:multiway_densformer}
-\begin{gathered}
-\overline{z}_0^Q = \overline{z}_0^K = \overline{z}_0^V = \overline{z}_0^R = z_0, \\
-z_i = \operatorname{B}'_i(\overline{z}_{i-1}^Q, \overline{z}_{i-1}^K, \overline{z}_{i-1}^V, \overline{z}_{i-1}^R), \\
-\overline{z}_i^Q, \dots, \overline{z}_i^R = \operatorname{DA}_i^Q(z_{:i}), \dots, \operatorname{DA}_i^R(z_{:i}), \quad i \in [1, L], \\
-\operatorname{MDDCEncoder}(z) = \overline{z}_L^R.
-\end{gathered}
-\end{equation}
-By establishing multiway dense connections, the MDDC mechanism significantly increases the bandwidth for cross-layer communication, fostering deeper integration of visual and linguistic contexts for superior caption generation.
-
-\begin{table*}[t]\normalsize
-	\centering
-	\vspace{0.1in}
-	\captionsetup{justification=justified}
-	\caption{State-of-the-Art Performance Comparison on the UICO Benchmark Test Split. Note that, B@$N$, M, R, C, S, $\text{S}^{*}_m$, and $\text{S}_m$ denote BLEU@$N$, METEOR, ROUGE-L, CIDEr, SPICE, and two specialized semantic metrics, respectively. All values are reported as percentages (\%).}
-	\vspace{-0.0in}
-	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l c c c c c c c c c c}
-		\toprule             
-		Methods & B@1  & B@2  & B@3  & B@4  & M    & R    & C     & S & S$^*_m$  & S$_m$\\	
-		\hline \hline
-		SCST~\cite{rennie2017self}        &  41.56   &  31.84   &  26.61   & 23.12 & 18.98 & 37.24 & 93.17 & 15.45 & 43.13 & 37.59\\
-		ADP-ATT~\cite{lu2017knowing}        & 42.12 &  32.09   &  26.93   & 23.42 & 19.20 & 38.15 & 96.84 & 16.26 & 44.40 & 38.77\\
-		Up-Down~\cite{anderson2018bottom}       & 42.18 &  32.73   &  27.72   & 24.33 & 20.12 & 38.80 & 100.82 & 16.71 & 46.02 & 40.16\\
-		AoANet~\cite{huang2019attention}        & 42.74 &  33.51   &  28.53   & 25.09 & 20.48 & 39.50 & 103.13 & 16.92 & 47.05 & 41.02\\
-		AAT~\cite{huang2019adaptively}        & 39.00 &  29.04   &  23.65   & 20.00 & 18.80 & 37.61 & 92.95 & 16.29 & 42.32 & 37.11\\
-		Transformer~\cite{vaswani2017attention}   & 41.18 &  31.56   &  26.29   & 22.94 & 19.64 & 38.30 & 94.72 & 16.56 & 43.90 & 38.43\\
-		M$^{2}$-Transformer~\cite{cornia2020meshed} & \underline{42.88} & 33.27 & 28.01 & 24.42 & 19.91 & 38.46 & 97.87 & 16.04 & 45.16 & 39.34\\
-		X-LAN~\cite{pan2020x} & 42.86 & \underline{33.56} & 28.35 & 24.69 & \underline{20.90} & \underline{40.49} & 105.95 & 18.10 & 47.98 & 41.99\\
-		DLCT~\cite{luo2021dual} & 35.34 & 27.64 & 23.63 & 21.18 & 17.29 & 33.42 & \textbf{155.96} & \textbf{23.28} & \underline{56.96} & \underline{50.23}\\
-		RSTNet~\cite{zhang2021rstnet} & 34.08 & 26.34 & 22.50 & 20.26 & 16.37 & 31.46 & 145.91 & 21.50 & 53.50 & 47.10\\
-		CAVP~\cite{zha2019context} & 36.04 & 25.81 & 20.51 & 17.20 & 20.49 & 35.42 & 77.08 & 3.34 & 37.39 & 30.55\\		
-		S$^{2}$-Transformer~\cite{zeng2022s2} & 34.07 & 26.58 & 22.83 & 20.59 & 16.42 & 31.73 & \underline{153.84} & \underline{22.10} & 55.64 & 48.93\\
-		LSTNet~\cite{ma2023towards} & 31.27 & 23.45 & 19.38 & 16.85 & 15.81 & 30.93 & 126.16 & 20.52 & 47.20 & 41.78\\
-		MLSAT~\cite{xu2025multi} & 28.45 & 19.70 & 15.02 & 12.19 & 13.13 & 26.74 & 75.76 & 15.90 & 31.96 & 28.74\\
-		\hline
-		%		UIFormer & \textbf{50.05} & \textbf{40.56} & \textbf{35.06} & \textbf{31.37} & \textbf{24.31} & \textbf{45.11} & \textbf{123.89} & \textbf{21.16} & 0 & 0 \\
-		UIFormer & \textbf{50.51} & \textbf{41.82} & \textbf{36.69} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & 126.55 & 20.62 & \textbf{57.76} & \textbf{50.33} \\
-		%		MFMCap-DINOv2 & \textbf{50.05} & \textbf{40.56} & \textbf{35.06} & \textbf{31.37} & \textbf{24.31} & \textbf{45.11} & \textbf{123.89} & \textbf{21.16} & 0 & 0 \\
-		\hline
-		\bottomrule
-	\end{tabular*}
-	\vspace{-0.2in}
-	\label{tab:results}
-\end{table*}
-
-\subsection{Training Objectives}
-Our model is trained following a two-stage strategy commonly adopted in captioning benchmarks. The first stage employs the cross-entropy (XE) loss for maximum likelihood estimation. Given the model parameters \(\theta\), an input image \(I\), and the corresponding ground-truth caption sequence \(y_{1:T}^*\), the XE loss is:
-\[
-L_{\text{XE}}(\theta) = -\sum_{t=1}^{T} \log \left( p(y_{t}^{*} \mid y_{1:t-1}^{*}, I, \theta) \right).
-\]
-
-In the second stage, we utilize self-critical (SC) sequence training ~\cite{rennie2017self} to directly optimize the CIDEr-D score, a metric well-aligned with human judgment. This is formulated as a reinforcement learning problem with the CIDEr-D score as the reward. The gradient for this stage is approximated as:
-\[
-\nabla_{\theta} L_{\text{SC}}(\theta) \approx -\frac{1}{n} \sum_{i=1}^{n} \left( r(y_{1:T}^{i}) - b \right) \nabla_{\theta} \log p_{\theta}(y_{1:T}^{i}),
-\]
-where \(n\) is the number of sequences sampled via beam search, \(r(\cdot)\) is the CIDEr-D scoring function, \(y_{1:T}^{i}\) is the \(i\)-th sampled sequence, and \(b = \frac{1}{n}\sum_{i} r(y_{1:T}^{i})\) is the baseline reward used to reduce variance. This combined objective ensures robust learning convergence and drives the model towards generating captions of high qualitative and quantitative merit.
-
-
-\begin{table}[t]
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.35em}
-	\caption{Breakdown of SPICE F-scores over various subcategories.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{lcccccc}
-			\toprule
-			& SPICE & Relation & Attribute & Size & Color & Object \\
-			\midrule
-			Up-Down~\cite{anderson2018bottom} & 16.71 & 6.37 & 12.44 & 13.58 & 6.34 & 26.18 \\
-			Transformer~\cite{vaswani2017attention} & 18.71 & 8.14 & 13.84 & \textbf{22.22} & 6.59 & 29.4 \\
-			\midrule
-			\textbf{UIFormer} & \textbf{20.52} & \textbf{10.15} & \textbf{15.70} & 17.28 & \textbf{12.78} & \textbf{30.88} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\vspace{-.3cm}
-	\label{tab:spice}
-\end{table}
-
-\begin{table*}[t]\normalsize
-	\centering
-	\vspace{0.1in}
-	\captionsetup{justification=justified}
-	\caption{Ablation Study Validating the Architectural Contributions on the UICO Benchmark.}
-	\vspace{-0.0in}
-	\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c c c c c c c c c c}
-		\toprule             
-		Baseline & MFM & MDDC & B@1  & B@2  & B@3  & B@4  & M    & R    & C     & S    \\	
-		\hline \hline
-		\CheckmarkBold & \XSolidBrush & \XSolidBrush & 44.72 &  34.48 & 28.83 & 24.88 & 20.79 & 40.47 & 99.78 & 18.30 \\
-		\CheckmarkBold & \CheckmarkBold & \XSolidBrush & 48.61 & 39.08 & 33.58 & 29.73 & 23.43 & 43.76 & 113.97 & 19.74 \\
-		\CheckmarkBold & \XSolidBrush & \CheckmarkBold & 46.00 & 36.36 & 30.89 & 27.08 & 22.15 & 42.17 & 108.13 & 19.52 \\
-		\hline
-		\CheckmarkBold & \CheckmarkBold &\CheckmarkBold & \textbf{50.51} & \textbf{41.82} & \textbf{36.69} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
-		\hline
-		\bottomrule
-	\end{tabular*}
-	\vspace{-0.2in}
-	\label{tab:ablation}
-\end{table*}
-
-\begin{figure*}[t!]
-	\centering
-	\captionsetup{justification=justified}
-	\footnotesize
-	\setlength{\tabcolsep}{6pt}
-	\renewcommand{\arraystretch}{1.15}
+	\subsection{Datasets and Settings}
+	\subsubsection{Datasets and Evaluation Metrics}
+	All experiments are conducted on the UICO dataset. The dataset comprises 37,844 images, each annotated with five textual descriptions. Following a standard split, 30,844 images are used for training and 3,500 for testing. To comprehensively assess model performance, we employ the standard suite of automatic captioning metrics: BLEU-n~\cite{papineni2002bleu}, METEOR~\cite{banerjee2005meteor}, ROUGE-L~\cite{lin2004rouge}, CIDEr-D~\cite{vedantam2015cider}, and SPICE~\cite{anderson2016spice}, utilizing their official evaluation codes. All VLM experiments use a single unified prompt: ``Describe any violation of urban order visible in this image in one short sentence. State what is wrong (e.g., illegal parking, garbage, clutter, damaged infrastructure) and where it is located. Do not explain why or analyze the situation.''
 	
-	\begin{tabular}{cccc}
-		% ---------------- Row 1 ----------------
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000038922.pdf}\\[3pt]
-			\raggedright
-			\textbf{GT:} Damaged garbage bins on street sides.\\
-			\textbf{Transformer:} The lid of the trash can is missing.\\
-			\textbf{UIFormer:} The sign on the trash can outside the shen cheng health service center is damaged.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000017105.pdf}\\[3pt]
-			\raggedright
-			\textbf{GT:} Improperly parked shared bicycles in front of the door.\\
-			\textbf{Transformer:} There is unauthorized parking of vehicles in front of the door.\\
-			\textbf{UIFormer:} There is a problem with bicycles from shared bike services being parked in a disorderly manner.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000002856.pdf}\\[3pt]
-			\raggedright
-			\textbf{GT:} The bathroom is not cleaned in time.\\
-			\textbf{Transformer:} The faucet is broken.\\
-			\textbf{UIFormer:} The bathroom was not cleaned in a timely manner.
-		\end{minipage}
-		&
-		\begin{minipage}[t]{0.21\textwidth}
-			\centering
-			\includegraphics[width=\linewidth]{figs/CCMC_val_000000006136.pdf}\\[3pt]
-			\raggedright
-			\textbf{GT:} The bathroom is not cleaned in time.\\
-			\textbf{Transformer:} The trash can in front of the door is dirty.\\
-			\textbf{UIFormer:} The sign on the trash bin in building 1 is damaged.
-		\end{minipage}
-		
-	\end{tabular}
+	To provide a consolidated performance measure, we adopt the composite metric \(S_m\) and \(S^*_m\)~\cite{zhang2021global}, which integrates the most widely-used automatic scores into a single scalar. It is defined as the arithmetic mean of BLEU-4, METEOR, ROUGE-L, CIDEr, and SPICE scores:
+	\begin{equation}\label{eq:sm}
+		\small S_m = \frac{1}{5}\left(\text{BLEU}_4 + \text{METEOR} + \text{ROUGE}_L + \text{CIDEr} + \text{SPICE}\right).
+	\end{equation}
+	\begin{equation}\label{eq:s*m}
+		\small S^*_m = \frac{1}{4}\left(\text{BLEU}_4 + \text{METEOR} + 	\text{ROUGE}_L + \text{CIDEr}\right).
+	\end{equation}
+	A higher \(S_m\) and \(S^*_m\) score indicates better overall descriptive quality.
 	
-	\caption{Examples of captions generated by our model and the Transformer baseline, compared with ground-truth descriptions.}
-	\label{fig:qualitative_results}
-	\vspace{-0.25cm}
-\end{figure*}
-
-\begin{figure}[ht!]
-	\centering
-	\includegraphics[width=0.6\linewidth]{figs/radar_backbone_comparison.pdf}
-	\captionsetup{justification=justified}
-	\caption{Captioning results of UIFormer using different vision backbone.} 
-	\label{fig:radar_backbone_comparison}
-\end{figure}
-
-\section{Experiment}
-In this section, we present extensive experiments to validate the merits of our proposed UIFormer model. We begin by evaluating its performance against state-of-the-art methods on the UICO benchmark, followed by ablation studies to quantify the contribution of each core component, and conclude with qualitative analyses that illustrate its descriptive capabilities. 
-
-\vspace{-0.2in}
-\subsection{Datasets and Settings}
-\subsubsection{Datasets and Evaluation Metrics}
-All experiments are conducted on the UICO dataset. The dataset comprises 37,844 images, each annotated with five textual descriptions. Following a standard split, 30,844 images are used for training and 3,500 for testing. To comprehensively assess model performance, we employ the standard suite of automatic captioning metrics: BLEU-n~\cite{papineni2002bleu}, METEOR~\cite{banerjee2005meteor}, ROUGE-L~\cite{lin2004rouge}, CIDEr-D~\cite{vedantam2015cider}, and SPICE~\cite{anderson2016spice}, utilizing their official evaluation codes.
-
-To provide a consolidated performance measure, we adopt the composite metric \(S_m\)~\cite{zhang2021global}, which integrates the most widely-used automatic scores into a single scalar. It is defined as the arithmetic mean of BLEU-4, METEOR, ROUGE-L, CIDEr, and SPICE scores:
-\begin{equation}\label{eq:sm}
-\small S_m = \frac{1}{5}\left(\text{BLEU}_4 + \text{METEOR} + \text{ROUGE}_L + \text{CIDEr} + \text{SPICE}\right).
-\end{equation}
-A higher \(S_m\) score indicates better overall descriptive quality.
-
-\subsubsection{Implementation Details}
-Our UIFormer model uses an embedding dimension of 512 and 8 attention heads. Both the MDDC encoder and the Transformer decoder consist of 6 layers. The model is trained in two phases using the AdamW optimizer~\cite{loshchilov2018decoupled} with a batch size of 16. The first phase involves 30 epochs of cross-entropy loss minimization, preceded by a learning rate warm-up over the first \(6\times10^3\) steps. This is followed by a second phase of reinforcement learning fine-tuning for 20 epochs using the self-critical training scheme, with an initial learning rate of \(1\times10^{-5}\) and a ReduceLROnPlateau scheduler (decay factor 0.8, patience 3). During inference, we employ beam search with a width of 5. All experiments are implemented in PyTorch, run with a fixed random seed of 42 for reproducibility, and trained on a single NVIDIA RTX 4090 GPU.
-
-
-
-\subsection{Comparative Performance Analysis}
-
-To comprehensively assess the performance of UIFormer on the specialized task of urban incivility description, we conduct a rigorous evaluation against a comprehensive suite of 14 state-of-the-art image captioning models. This benchmark encompasses seminal works spanning dominant architectural paradigms, including CNN-RNN hybrids with attention mechanisms (SCST~\cite{rennie2017self}, ADP-ATT~\cite{lu2017knowing}, Up-Down~\cite{anderson2018bottom}), advanced Transformer-based designs (AoANet~\cite{huang2019attention}, AAT~\cite{huang2019adaptively}, M\(^2\)-Transformer~\cite{cornia2020meshed}, X-LAN~\cite{pan2020x}), and recent architectures focusing on enhanced visual grounding or structural reasoning (DLCT~\cite{luo2021dual}, RSTNet~\cite{zhang2021rstnet}, S\(^2\)-Transformer~\cite{zeng2022s2}, LSTNet~\cite{ma2023towards}, CAVP~\cite{zha2019context}, MLSAT~\cite{xu2025multi}). The standard Transformer~\cite{vaswani2017attention} serves as a fundamental baseline.
-
-As summarized in Table~\ref{tab:results}, UIFormer establishes a new state-of-the-art on the UICO benchmark, demonstrating substantial improvements across core metrics. Notably, UIFormer achieves a BLEU-4 score of 31.37 and a CIDEr score of 123.89. This represents a significant advance of +8.43 BLEU-4 points and +29.17 CIDEr points over the vanilla Transformer baseline, and an improvement of +6.28 and +20.76 points, respectively, over the strong competitor AoANet. These consistent gains in both n-gram precision (BLEU-4) and consensus-based semantic similarity (CIDEr) indicate that UIFormer generates captions that are not only more syntactically aligned with references but also richer in the precise visual and normative semantics required for describing incivility.
-
-To further dissect the model's semantic comprehension, we analyze the fine-grained SPICE scores in Table~\ref{tab:spice}. SPICE evaluates the fidelity of scene graph propositions, providing insights into specific reasoning capabilities. UIFormer surpasses all compared models across all subcategories, including Relation, Attribute, and Object. The marked improvement in the Relation score, for instance, underscores the model's enhanced ability to correctly articulate interactions central to violations (e.g., "vehicle blocking sidewalk"). Similarly, gains in Attribute and the specialized Color and Size metrics reflect a stronger capacity for comparative and descriptive reasoning essential for detailing disorderly scenes. This comprehensive advancement across syntactic and deep semantic metrics validates that the joint MFM and MDDC design enables more faithful and context-aware grounding of linguistic constructs in complex urban imagery.
-
-\begin{table}
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.5em}
-	\caption{Captioning results of UIFormer using different numbers of encoder and decoder layers.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{cccccccc}
-			\toprule
-			Layers & & B@1 & B@4 & M & R & C & S\\
-			\midrule
-			3 & & 48.47 & 29.84 & 23.14 & 43.40 & 117.40 & 20.10 \\
-			4 & & 48.06 & 29.83 & 23.03 & 43.58 & 121.87 & 20.54 \\
-			5 & & 50.43 & 32.18 & 24.29 & 45.54 & 123.38 & 20.49 \\
-			6 & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\label{tab:layers}
-	\vspace{-0.3cm}
-\end{table}
-
-\begin{table}[t]
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.5em}
-	\caption{Captioning results of UIFormer using different numbers of attention heads.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{cccccccc}
-			\toprule
-			h & & B@1 & B@4 & M & R & C & S\\
-			\midrule
-			1 & & 50.10 & 31.36 & 24.09 & 45.10 & 120.36 & 20.07 \\
-			2 & & 49.86 & 31.93 & 24.21 & 45.22 & 123.76 & 21.00 \\
-			4 & & 49.03 & 30.55 & 23.57 & 44.13 & 117.11 & 20.17 \\
-			8 & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\label{tab:num_att_heads}
-	\vspace{-0.3cm}
-\end{table}
-
-\begin{table}[t]
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.5em}
-	\caption{Captioning results of UIFormer using different value of $\lambda$.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{cccccccc}
-			\toprule
-			$\lambda$ & & B@1 & B@4 & M & R & C & S\\
-			\midrule
-			$1$ & & 49.25 & 31.27 & 23.84 & 44.42 & 119.57 & 20.16 \\
-			$1/12$ & & \textbf{50.98} & \textbf{33.35} & 24.85 & 46.48 & \textbf{127.62} & 20.56 \\
-			$1/24$ & & 50.51 & 32.92 & \textbf{24.99} & \textbf{46.60} & 126.55 & \textbf{20.62} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\label{tab:lambda}
-	\vspace{-0.3cm}
-\end{table}
-
-\begin{table}[t]
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.5em}
-	\caption{Captioning results of UIFormer using different vision backbone.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{cccccccc}
-			\toprule
-			backbone & & B@1 & B@4 & M & R & C & S\\
-			\midrule
-			MAE & & 40.69 & 22.68 & 18.99 & 36.81 & 89.74 & 15.75 \\
-			DINOv2 & & 46.62 & 27.08 & 21.61 & 41.23 & 105.34 & 18.30 \\
-			CLIP & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\label{tab:backbone_results}
-	\vspace{-0.3cm}
-\end{table}
-
-\begin{table}[t!]
-	\small
-	\centering
-	\captionsetup{justification=justified}
-	\setlength{\tabcolsep}{.5em}
-	\caption{Captioning results of UIFormer using different reward in the reinforcement learning phase.}
-	\resizebox{\linewidth}{!}{
-		\begin{tabular}{cccccccc}
-			\toprule
-			reward & & B@1 & B@4 & M & R & C & S\\
-			\midrule
-			CIDEr & & 50.51 & 32.92 & 24.99 & 46.60 & 126.55 & 20.62 \\
-			BLEU-4 & & \textbf{50.95} & \textbf{32.96} & \textbf{25.16} & \textbf{47.01} & \textbf{131.01} & \textbf{21.34} \\
-			\bottomrule
-		\end{tabular}
-	}
-	\label{tab:reward_results}
-	\vspace{-0.3cm}
-\end{table}
-
-\vspace{-0.1in}
-\subsection{Ablation Studies}
-\subsubsection{Effectiveness of Core Modules (MFM \& MDDC)}
-
-To deconstruct the contribution of each proposed component, we conduct a controlled ablation study. As summarized in Table~\ref{tab:ablation}, the vanilla Transformer baseline shows limited capability on the UICO benchmark (BLEU-4: 24.88, CIDEr: 99.78). Introducing only the MFM module yields a significant gain (BLEU-4: 29.73, CIDEr: 113.97), validating that hierarchical visual feature integration is paramount for recognizing localized, fine-grained incivilities. Incorporating only the MDDC mechanism provides a more modest improvement (BLEU-4: 27.08, CIDEr: 108.13), underscoring its primary role in enhancing information flow and coherence rather than feature extraction. The full UIFormer model, integrating both MFM and MDDC, achieves the best performance across all metrics (BLEU-4: 32.92, CIDEr: 126.55), demonstrating a synergistic effect. This confirms that MFM enriches the visual representation, while MDDC ensures these enriched features are effectively propagated and reasoned over throughout the deep network.
-
-\subsubsection{Analysis of Vision Backbones}
-
-The choice of visual foundation model dictates the initial semantic and structural priors available to the captioning system. We evaluate three distinct pre-training paradigms using an otherwise identical UIFormer architecture:
-CLIP (Contrastive Vision-Language): Achieves the highest performance (CIDEr: 126.55, SPICE: 20.62), establishing a clear upper bound. Its pre-training objective explicitly aligns visual and textual spaces, providing a "governance-aware" semantic grounding crucial for interpreting normative violations.
-DINOv2 (Discriminative Self-Supervised): Yields respectable but lower results (CIDEr: 105.34). While excellent at capturing geometric and spatial relationships, it lacks the explicit linguistic alignment needed for nuanced semantic description.
-MAE (Generative Reconstruction): Results in the weakest performance (CIDEr: 89.74), indicating that pixel-level reconstruction objectives do not translate well to high-level semantic reasoning tasks.
-This hierarchy, detailed in Table~\ref{tab:backbone_results} and visualized in Fig.~\ref{fig:radar_backbone_comparison}, conclusively demonstrates that vision-language alignment is the most suitable inductive bias for urban incivility captioning, leading to the selection of CLIP as our default backbone.
-
-\subsection{Hyperparameter Analysis}
-
-\subsubsection{Model Depth}
-
-We investigate the impact of network depth by varying the number of layers \(L\) in the MDDC Encoder and Transformer Decoder. Performance (Table~\ref{tab:layers}) improves monotonically from \(L=3\) (CIDEr: 117.40) to \(L=6\) (CIDEr: 126.55), with no further gains beyond six layers. This indicates that a sufficient depth is necessary to model complex object relationships (e.g., "blocking," "occupying") in uncivil scenes. The absence of performance degradation at \(L=6\) validates that our MDDC mechanism successfully mitigates the information loss typically associated with deep transformers, allowing effective feature reuse across layers.
-
-\subsubsection{Multi-Head Attention Configuration}
-
-The number of attention heads \(h\) controls the model's capacity for parallel relational modeling. Ablation over \(h \in \{1, 2, 4, 8\}\) (Table~\ref{tab:num_att_heads}) reveals optimal performance at \(h=8\), achieving peak CIDEr (126.55) and BLEU-4 (32.92\%). Configuration \(h=4\) performs the worst, suggesting a dimensionality bottleneck where each head lacks sufficient capacity. The results confirm that the heterogeneous and semantically complex nature of urban incivility scenes benefits from a high degree of specialized attention mechanisms.
-
-\subsubsection{Feature Fusion Scaling Factor (\(\lambda\))}
-
-The scaling factor \(\lambda\) in the MFM fusion equation \(v=\sum_{i}\lambda \cdot \text{Linear}(\text{LN}(v_i))\) is critical for stabilizing the aggregation of multi-layer features. Evaluating \(\lambda \in \{1, 1/12, 1/24\}\) (Table~\ref{tab:lambda}) shows the unscaled setting (\(\lambda=1\)) fails due to feature magnitude explosion. Between scaled settings, \(\lambda=1/12\) optimizes n-gram fluency (BLEU-4: 33.35\%), while \(\lambda=1/24\) maximizes semantic fidelity (SPICE: 20.62\%, METEOR: 24.99\%). Prioritizing semantic accuracy for governance applications, we select \(\lambda=1/24\).
-
-\subsubsection{Reinforcement Learning Reward Function}
-
-We examine the reward signal for the self-critical training stage. Contrary to common practice, optimizing for BLEU-4 yields better performance than optimizing for the standard CIDEr-D reward across all metrics, including a higher final CIDEr score (131.01 vs. 126.55). As detailed in Table~\ref{tab:reward_results}, this is attributed to UICO's domain-specific nature: CIDEr's TF-IDF weighting inadvertently down-weights high-frequency but semantically vital administrative terms (e.g., "unauthorized"), while BLEU-4's n-gram matching enforces the precise, standardized phrasing required for clear violation reports. This finding highlights the importance of task-adaptive reward design.
-
-
-\subsection{Qualitative and Quantitative Analysis}
-
-\subsubsection{Quantitative Benchmarking}
-
-UIFormer establishes a new state-of-the-art on the UICO benchmark. As shown in Table~\ref{tab:results}, it significantly outperforms all 14 compared baselines from CNN-RNN and Transformer families. Notably, it surpasses the strong AoANet baseline by +6.28 BLEU-4 points and +20.76 CIDEr points. A fine-grained breakdown using SPICE metrics (Table~\ref{tab:spice}) reveals that UIFormer improves across all semantic sub-categories, especially in Relation and Attribute scores. This indicates a superior ability to articulate interactions (e.g., "vehicle blocking sidewalk") and descriptive properties essential for detailed incivility reports.
-
-\subsubsection{Qualitative Results}
-
-Figure~\ref{fig:qualitative_results} provides a comparative visualization of generated captions. UIFormer consistently produces more precise, contextual, and normatively-aware descriptions. For example, it accurately specifies locations ("on the pedestrian walkway") and violation types ("illegally parked"), whereas the baseline Transformer often generates generic or spatially ambiguous captions. These qualitative observations align perfectly with the quantitative gains, demonstrating that the joint MFM-MDDC design effectively bridges low-level visual evidence with high-level civic semantics, moving beyond object recognition to actionable behavioral interpretation.
-
-\section{Conclusion}
-
-This paper introduces a novel and challenging research direction in urban scene understanding: urban incivility captioning. We propose UIFormer, a vision-language framework that generates semantically rich and governance-aware descriptions of scenes depicting civic norm violations. To enable this task, we also contribute the UICO dataset, a large-scale, expert-annotated benchmark comprising 37,844 high-fidelity image-text pairs with granular civic semantics. Our framework addresses key limitations of standard captioning models through two architectural innovations: the MFM module, which adaptively fuses complementary multi-scale visual features across hierarchical layers of a vision backbone, and the MDDC module, which enhances feature propagation and mitigates information loss through dense cross-layer connections. Extensive experiments on the UICO benchmark demonstrate that UIFormer achieves state-of-the-art performance, significantly outperforming existing strong baselines across standard metrics. Future work will explore extending the model to multilingual or multimodal inputs (e.g., integrating temporal or audio data), enhancing its reasoning capabilities for complex, multi-violation scenarios, and deploying the system in real-time civic management pipelines to assess its practical impact.
-
-
-\bibliographystyle{IEEEtran}  % 选择样式（如 plain, abbrv, unsrt）
-\bibliography{refs}   
-
- 
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/yepingzhao}}]{Yeping Zhao}
-	is pursuing a B.E. degree in Data Science and Big Data Technology at Anhui University, with an expected graduation date of June 2026. To broaden his academic exposure, he has attended summer schools at Peking University and The University of Hong Kong, focusing on advanced topics in computing and data science. Since December 2025, he has been a Visiting Student at the Center for Artificial Intelligence Research and Innovation (CAIRI), Westlake University, conducting research under the supervision of Prof. Stan Z. Li. His academic work primarily focuses on image captioning, AI for science, and deep learning.
-\end{IEEEbiography} 
-
-
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/JianMa}}]{Jian Ma} (Member, IEEE) 
-	received his Ph.D. degree in Communication and Information Engineering from Shanghai University in 2018. He subsequently served as a Lecturer at the Institute of Logistics Science and Engineering, Shanghai Maritime University from August 2018 to December 2019. In January 2020, he joined the School of Internet at Anhui University, where he currently holds the position of Associate Professor. From October 2020 to June 2024, he concurrently conducted postdoctoral research at the School of Computer Science, Fudan University. From February 2025 to February 2026, he serves as a visiting scholar at the School of Computing, City University of Hong Kong. His research primarily focuses on multimodal representation and learning, immersive multimedia computing, and deep learning.
-\end{IEEEbiography} 
-\vspace{-1mm} 
-
-
-
-\vspace{-1mm} 
-
-
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/Pingan}}]{Ping An} (Member, IEEE) 
-	received her Ph.D. degree from Shanghai University, Shanghai, China, in 2002. In 1993, she joined Shanghai University, where she is currently a Professor with the Video Processing Group, School of Communication and Information Engineering. From 2011 to 2012, she joined the Communication Systems Group, Technische University at Berlin, Germany, as a Visiting Professor. She has finished over 10 projects supported by the National Natural Science Foundation of China, the National Science and Technology Ministry, and the Science and Technology Commission of Shanghai Municipality. Her research interests include image and video processing, with a focus on 3D video processing. She was a recipient of the Second Prize of the Shanghai Municipal Science and Technology Progress Award in 2011, the Second Prize in Natural Sciences of the Ministry of Education in 2016, and the Second Prize in Natural Sciences of the Chinese Institute of Electronics in 2018. 
-\end{IEEEbiography} 
-
-
-
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/LinshengHuang}}]{Linsheng Huang}
-   received his Ph.D. degree in circuits and systems from Anhui University in 2013. He is currently a Professor and Doctoral Supervisor at Anhui University, where he also serves as Vice Dean of the School of Internet and Director of the National Engineering Research Center for Agro-Ecological Big Data Analysis \& Application. Recognized as a Top 2\% Most-Cited Scientist Worldwide (Stanford, 2023-2024), His current research interests include remote sensing information processing, technology, and applications of Internet of Things.
-\end{IEEEbiography} 
-
-\vfill
-
+	\subsubsection{Implementation Details}
+	Our UIFormer model uses an embedding dimension of 512 and 8 attention heads. Both the MDDC encoder and the Transformer decoder consist of 6 layers. The model is trained in two phases using the AdamW optimizer~\cite{loshchilov2018decoupled} with a batch size of 16. The first phase involves 30 epochs of cross-entropy loss minimization, preceded by a learning rate warm-up over the first \(6\times10^3\) steps. This is followed by a second phase of reinforcement learning fine-tuning for 20 epochs using the self-critical training scheme, with an initial learning rate of \(1\times10^{-5}\) and a ReduceLROnPlateau scheduler (decay factor 0.8, patience 3). During inference, we employ beam search with a width of 5. All experiments are implemented in PyTorch, run with a fixed random seed of 42 for reproducibility, and trained on a single NVIDIA RTX 4090 GPU.
+	
+	
+	
+	\subsection{Comparative Performance Analysis}
+	
+	To comprehensively assess the performance of UIFormer on the specialized task of urban incivility description, we conduct a rigorous evaluation against a comprehensive suite of 14 state-of-the-art image captioning models. This benchmark encompasses seminal works spanning dominant architectural paradigms, including CNN-RNN hybrids with attention mechanisms (SCST~\cite{rennie2017self}, ADP-ATT~\cite{lu2017knowing}, Up-Down~\cite{anderson2018bottom}), advanced Transformer-based designs (AoANet~\cite{huang2019attention}, AAT~\cite{huang2019adaptively}, M\(^2\)-Transformer~\cite{cornia2020meshed}, X-LAN~\cite{pan2020x}), and recent architectures focusing on enhanced visual grounding or structural reasoning (DLCT~\cite{luo2021dual}, RSTNet~\cite{zhang2021rstnet}, S\(^2\)-Transformer~\cite{zeng2022s2}, LSTNet~\cite{ma2023towards}, CAVP~\cite{zha2019context}, MLSAT~\cite{xu2025multi}). The standard Transformer~\cite{vaswani2017attention} serves as a fundamental baseline.
+	
+	As summarized in Table~\ref{tab:results}, UIFormer establishes a new state-of-the-art on the UICO benchmark, demonstrating substantial improvements across core metrics. Notably, UIFormer achieves a BLEU-4 score of 32.92 and a CIDEr score of 126.55. This represents a significant advance of +9.98 BLEU-4 points and +31.83 CIDEr points over the vanilla Transformer baseline, and an improvement of +7.83 and +23.42 points, respectively, over the strong competitor AoANet. These consistent gains in both n-gram precision (BLEU-4) and consensus-based semantic similarity (CIDEr) indicate that UIFormer generates captions that are not only more syntactically aligned with references but also richer in the precise visual and normative semantics required for describing incivility.
+	
+	To further dissect the model's semantic comprehension, we analyze the fine-grained SPICE scores in Table~\ref{tab:spice}. SPICE evaluates the fidelity of scene graph propositions, providing insights into specific reasoning capabilities. UIFormer surpasses all compared models across all subcategories, including Relation, Attribute, and Object. The marked improvement in the Relation score, for instance, underscores the model's enhanced ability to correctly articulate interactions central to violations (e.g., "vehicle blocking sidewalk"). Similarly, gains in Attribute and the specialized Color and Size metrics reflect a stronger capacity for comparative and descriptive reasoning essential for detailing disorderly scenes. This comprehensive advancement across syntactic and deep semantic metrics validates that the joint MFM and MDDC design enables more faithful and context-aware grounding of linguistic constructs in complex urban imagery.
+	
+	\begin{table}
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.5em}
+		\caption{Captioning results of UIFormer using different numbers of encoder and decoder layers.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{cccccccc}
+					\toprule
+					Layers & & B@1 & B@4 & M & R & C & S\\
+					\midrule
+					3 & & 48.47 & 29.84 & 23.14 & 43.40 & 117.40 & 20.10 \\
+					4 & & 48.06 & 29.83 & 23.03 & 43.58 & 121.87 & 20.54 \\
+					5 & & 50.43 & 32.18 & 24.29 & 45.54 & 123.38 & 20.49 \\
+					6 & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\label{tab:layers}
+		\vspace{-0.3cm}
+	\end{table}
+	
+	\begin{table}[t]
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.5em}
+		\caption{Captioning results of UIFormer using different numbers of attention heads.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{cccccccc}
+					\toprule
+					h & & B@1 & B@4 & M & R & C & S\\
+					\midrule
+					1 & & 50.10 & 31.36 & 24.09 & 45.10 & 120.36 & 20.07 \\
+					2 & & 49.86 & 31.93 & 24.21 & 45.22 & 123.76 & 21.00 \\
+					4 & & 49.03 & 30.55 & 23.57 & 44.13 & 117.11 & 20.17 \\
+					8 & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\label{tab:num_att_heads}
+		\vspace{-0.3cm}
+	\end{table}
+	
+	\begin{table}[t]
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.5em}
+		\caption{Captioning results of UIFormer using different value of $\lambda$.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{cccccccc}
+					\toprule
+					$\lambda$ & & B@1 & B@4 & M & R & C & S\\
+					\midrule
+					$1$ & & 49.25 & 31.27 & 23.84 & 44.42 & 119.57 & 20.16 \\
+					$1/12$ & & \textbf{50.98} & \textbf{33.35} & 24.85 & 46.48 & \textbf{127.62} & 20.56 \\
+					$1/24$ & & 50.51 & 32.92 & \textbf{24.99} & \textbf{46.60} & 126.55 & \textbf{20.62} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\label{tab:lambda}
+		\vspace{-0.3cm}
+	\end{table}
+	
+	\begin{table}[t]
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.5em}
+		\caption{Captioning results of UIFormer using different vision backbone.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{cccccccc}
+					\toprule
+					backbone & & B@1 & B@4 & M & R & C & S\\
+					\midrule
+					MAE~\cite{he2022masked} & & 40.69 & 22.68 & 18.99 & 36.81 & 89.74 & 15.75 \\
+					DINOv2~\cite{oquab2023dinov2} & & 46.62 & 27.08 & 21.61 & 41.23 & 105.34 & 18.30 \\
+					CLIP~\cite{radford2021learning} & & \textbf{50.51} & \textbf{32.92} & \textbf{24.99} & \textbf{46.60} & \textbf{126.55} & \textbf{20.62} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\label{tab:backbone_results}
+		\vspace{-0.3cm}
+	\end{table}
+	
+	\begin{table}[t!]
+		\small
+		\centering
+		\captionsetup{justification=justified}
+		\setlength{\tabcolsep}{.5em}
+		\caption{Captioning results of UIFormer using different reward in the reinforcement learning phase.}
+		\resizebox{\linewidth}{!}{
+			\resizebox{\linewidth}{!}{
+				\begin{tabular}{cccccccc}
+					\toprule
+					reward & & B@1 & B@4 & M & R & C & S\\
+					\midrule
+					CIDEr & & 50.51 & 32.92 & 24.99 & 46.60 & 126.55 & 20.62 \\
+					BLEU-4 & & \textbf{50.95} & \textbf{32.96} & \textbf{25.16} & \textbf{47.01} & \textbf{131.01} & \textbf{21.34} \\
+					\bottomrule
+				\end{tabular}
+			}
+		}
+		\label{tab:reward_results}
+		\vspace{-0.3cm}
+	\end{table}
+	
+	\vspace{-0.1in}
+	\subsection{Scaling Analysis of Vision-Language Models}
+	\label{sec:scaling}
+	
+	To further contextualize the VLM results in Table~\ref{tab:results}, we investigate how VLM performance scales as a function of task-specific adaptation, from zero-shot and few-shot prompting with $k{\in}\{1,3\}$ examples to QLoRA fine-tuning. Table~\ref{tab:vlm_scaling} reports the scaling behavior across three representative VLMs.
+	
+	Two notable patterns emerge. First, few-shot prompting yields inconsistent and often negligible gains. LLaVA-1.5-7B actually degrades from $S_m{=}4.10$ under zero-shot to $S_m{=}3.41$ with $k{=}1$, while InternVL3.5-8B benefits more substantially, improving from $S_m{=}4.58$ under zero-shot to $S_m{=}10.10$ with $k{=}3$. This model-dependent sensitivity suggests that in-context examples can either guide or distract, depending on the quality of the backbone's pretrained alignment. Second, QLoRA fine-tuning provides the largest and most consistent improvements, elevating Qwen3-VL-8B and InternVL3.5-8B to $S_m{\approx}22$, a three- to five-fold increase over zero-shot. However, even after LoRA adaptation, these models remain far below UIFormer ($S_m{=}50.33$), confirming that generic VLM architectures, even when fine-tuned on domain data, cannot match a purpose-built captioning model.
+	
+	\subsection{Ablation Studies}
+	\subsubsection{Effectiveness of Core Modules (MFM \& MDDC)}
+	
+	To deconstruct the contribution of each proposed component, we conduct a controlled ablation study. As summarized in Table~\ref{tab:ablation}, the vanilla Transformer baseline shows limited capability on the UICO benchmark (BLEU-4: 24.88, CIDEr: 99.78). Introducing only the MFM module yields a significant gain (BLEU-4: 29.73, CIDEr: 113.97), validating that hierarchical visual feature integration is paramount for recognizing localized, fine-grained incivilities. Incorporating only the MDDC mechanism provides a more modest improvement (BLEU-4: 27.08, CIDEr: 108.13), underscoring its primary role in enhancing information flow and coherence rather than feature extraction. The full UIFormer model, integrating both MFM and MDDC, achieves the best performance across all metrics (BLEU-4: 32.92, CIDEr: 126.55), demonstrating a synergistic effect. This confirms that MFM enriches the visual representation, while MDDC ensures these enriched features are effectively propagated and reasoned over throughout the deep network.
+	
+	\subsubsection{Analysis of Vision Backbones}
+	
+	The choice of visual foundation model dictates the initial semantic and structural priors available to the captioning system. We evaluate three distinct pre-training paradigms using an otherwise identical UIFormer architecture:
+	CLIP (Contrastive Vision-Language): Achieves the highest performance (CIDEr: 126.55, SPICE: 20.62), establishing a clear upper bound. Its pre-training objective explicitly aligns visual and textual spaces, providing a "governance-aware" semantic grounding crucial for interpreting normative violations.
+	DINOv2 (Discriminative Self-Supervised): Yields respectable but lower results (CIDEr: 105.34). While excellent at capturing geometric and spatial relationships, it lacks the explicit linguistic alignment needed for nuanced semantic description.
+	MAE (Generative Reconstruction): Results in the weakest performance (CIDEr: 89.74), indicating that pixel-level reconstruction objectives do not translate well to high-level semantic reasoning tasks.
+	This hierarchy, detailed in Table~\ref{tab:backbone_results} and visualized in Fig.~\ref{fig:radar_backbone_comparison}, conclusively demonstrates that vision-language alignment is the most suitable inductive bias for urban incivility captioning, leading to the selection of CLIP as our default backbone.
+	
+	\subsection{Hyperparameter Analysis}
+	
+	\subsubsection{Model Depth}
+	
+	We investigate the impact of network depth by varying the number of layers \(L\) in the MDDC Encoder and Transformer Decoder. Performance (Table~\ref{tab:layers}) improves monotonically from \(L=3\) (CIDEr: 117.40) to \(L=6\) (CIDEr: 126.55), with no further gains beyond six layers. This indicates that a sufficient depth is necessary to model complex object relationships (e.g., "blocking," "occupying") in uncivil scenes. The absence of performance degradation at \(L=6\) validates that our MDDC mechanism successfully mitigates the information loss typically associated with deep transformers, allowing effective feature reuse across layers.
+	
+	\subsubsection{Multi-Head Attention Configuration}
+	
+	The number of attention heads \(h\) controls the model's capacity for parallel relational modeling. Ablation over \(h \in \{1, 2, 4, 8\}\) (Table~\ref{tab:num_att_heads}) reveals optimal performance at \(h=8\), achieving peak CIDEr (126.55) and BLEU-4 (32.92\%). Configuration \(h=4\) performs the worst, suggesting a dimensionality bottleneck where each head lacks sufficient capacity. The results confirm that the heterogeneous and semantically complex nature of urban incivility scenes benefits from a high degree of specialized attention mechanisms.
+	
+	\subsubsection{Feature Fusion Scaling Factor (\(\lambda\))}
+	
+	The scaling factor \(\lambda\) in the MFM fusion equation \(v=\sum_{i}\lambda \cdot \text{Linear}(\text{LN}(v_i))\) is critical for stabilizing the aggregation of multi-layer features. Evaluating \(\lambda \in \{1, 1/12, 1/24\}\) (Table~\ref{tab:lambda}) shows the unscaled setting (\(\lambda=1\)) fails due to feature magnitude explosion. Between scaled settings, \(\lambda=1/12\) optimizes n-gram fluency (BLEU-4: 33.35\%), while \(\lambda=1/24\) maximizes semantic fidelity (SPICE: 20.62\%, METEOR: 24.99\%). Prioritizing semantic accuracy for governance applications, we select \(\lambda=1/24\).
+	
+	\subsubsection{Reinforcement Learning Reward Function}
+	
+	We examine the reward signal for the self-critical training stage. Contrary to common practice, optimizing for BLEU-4 yields better performance than optimizing for the standard CIDEr-D reward across all metrics, including a higher final CIDEr score (131.01 vs. 126.55). As detailed in Table~\ref{tab:reward_results}, this is attributed to UICO's domain-specific nature: CIDEr's TF-IDF weighting inadvertently down-weights high-frequency but semantically vital administrative terms (e.g., "unauthorized"), while BLEU-4's n-gram matching enforces the precise, standardized phrasing required for clear violation reports. This finding highlights the importance of task-adaptive reward design.
+	
+	
+	\subsection{Qualitative and Quantitative Analysis}
+	
+	\subsubsection{Quantitative Benchmarking}
+	
+	UIFormer establishes a new state-of-the-art on the UICO benchmark. As shown in Table~\ref{tab:results}, it significantly outperforms all 14 compared baselines from CNN-RNN and Transformer families. Notably, it surpasses the strong AoANet baseline by +7.83 BLEU-4 points and +23.42 CIDEr points. A fine-grained breakdown using SPICE metrics (Table~\ref{tab:spice}) reveals that UIFormer improves across all semantic sub-categories, especially in Relation and Attribute scores. This indicates a superior ability to articulate interactions (e.g., "vehicle blocking sidewalk") and descriptive properties essential for detailed incivility reports.
+	
+	\subsubsection{Qualitative Results}
+	
+	Figure~\ref{fig:qualitative_results} provides a comparative visualization of generated captions. UIFormer consistently produces more precise, contextual, and normatively-aware descriptions. For example, it accurately specifies locations ("on the pedestrian walkway") and violation types ("illegally parked"), whereas the baseline Transformer often generates generic or spatially ambiguous captions. These qualitative observations align perfectly with the quantitative gains, demonstrating that the joint MFM-MDDC design effectively bridges low-level visual evidence with high-level civic semantics, moving beyond object recognition to actionable behavioral interpretation.
+	
+	\section{Conclusion}
+	
+	This paper introduces a novel and challenging research direction in urban scene understanding: urban incivility captioning. We propose UIFormer, a vision-language framework that generates semantically rich and governance-aware descriptions of scenes depicting civic norm violations. To enable this task, we also contribute the UICO dataset, a large-scale, expert-annotated benchmark comprising 37,844 high-fidelity image-text pairs with granular civic semantics. Our framework addresses key limitations of standard captioning models through two architectural innovations: the MFM module, which adaptively fuses complementary multi-scale visual features across hierarchical layers of a vision backbone, and the MDDC module, which enhances feature propagation and mitigates information loss through dense cross-layer connections. Extensive experiments on the UICO benchmark demonstrate that UIFormer achieves state-of-the-art performance, significantly outperforming existing strong baselines across standard metrics. Future work will explore extending the model to multilingual or multimodal inputs (e.g., integrating temporal or audio data), enhancing its reasoning capabilities for complex, multi-violation scenarios, and deploying the system in real-time civic management pipelines to assess its practical impact.
+	
+	
+	\bibliographystyle{IEEEtran}  % 选择样式（如 plain, abbrv, unsrt）
+	\bibliography{refs}   
+	
+	
+	%	\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/yepingzhao}}]{Yeping Zhao}
+		%		is pursuing a B.E. degree in Data Science and Big Data Technology at Anhui University, with an expected graduation date of June 2026. To broaden his academic exposure, he has attended summer schools at Peking University and The University of Hong Kong, focusing on advanced topics in computing and data science. Since December 2025, he has been a Visiting Student at the Center for Artificial Intelligence Research and Innovation (CAIRI), Westlake University, conducting research under the supervision of Prof. Stan Z. Li. His academic work primarily focuses on image captioning, AI for science, and deep learning.
+		%	\end{IEEEbiography} 
+	%	
+	%	
+	%	\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/JianMa}}]{Jian Ma} (Member, IEEE) 
+		%		received his Ph.D. degree in Communication and Information Engineering from Shanghai University in 2018. He subsequently served as a Lecturer at the Institute of Logistics Science and Engineering, Shanghai Maritime University from August 2018 to December 2019. In January 2020, he joined the School of Internet at Anhui University, where he currently holds the position of Associate Professor. From October 2020 to June 2024, he concurrently conducted postdoctoral research at the School of Computer Science, Fudan University. From February 2025 to February 2026, he serves as a visiting scholar at the School of Computing, City University of Hong Kong. His research primarily focuses on multimodal representation and learning, immersive multimedia computing, and deep learning.
+		%	\end{IEEEbiography} 
+	%	\vspace{-1mm} 
+	%	
+	%	
+	%	
+	%	\vspace{-1mm} 
+	%	
+	%	
+	%	\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/Pingan}}]{Ping An} (Member, IEEE) 
+		%		received her Ph.D. degree from Shanghai University, Shanghai, China, in 2002. In 1993, she joined Shanghai University, where she is currently a Professor with the Video Processing Group, School of Communication and Information Engineering. From 2011 to 2012, she joined the Communication Systems Group, Technische University at Berlin, Germany, as a Visiting Professor. She has finished over 10 projects supported by the National Natural Science Foundation of China, the National Science and Technology Ministry, and the Science and Technology Commission of Shanghai Municipality. Her research interests include image and video processing, with a focus on 3D video processing. She was a recipient of the Second Prize of the Shanghai Municipal Science and Technology Progress Award in 2011, the Second Prize in Natural Sciences of the Ministry of Education in 2016, and the Second Prize in Natural Sciences of the Chinese Institute of Electronics in 2018. 
+		%	\end{IEEEbiography} 
+	%	
+	%	
+	%	
+	%	\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{figs/LinshengHuang}}]{Linsheng Huang}
+		%		received his Ph.D. degree in circuits and systems from Anhui University in 2013. He is currently a Professor and Doctoral Supervisor at Anhui University, where he also serves as Vice Dean of the School of Internet and Director of the National Engineering Research Center for Agro-Ecological Big Data Analysis \& Application. Recognized as a Top 2\% Most-Cited Scientist Worldwide (Stanford, 2023-2024), His current research interests include remote sensing information processing, technology, and applications of Internet of Things.
+		%	\end{IEEEbiography} 
+	%	
+	%	\vfill
+	
 \end{document}
-
-

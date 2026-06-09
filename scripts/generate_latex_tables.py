@@ -67,8 +67,8 @@ MAIN_METRICS = ["BLEU_4", "METEOR", "ROUGE_L", "CIDER", "SPICE", "S_m", "CLIPSco
 SUPP_METRICS = ["BLEU_4", "METEOR", "ROUGE_L", "CIDER", "SPICE", "S_m", "CLIPScore", "RefCLIPScore"]
 # All metrics available in the JSON files (for Table II: full detail)
 ALL_METRICS = ["BLEU_1", "BLEU_2", "BLEU_3", "BLEU_4", "METEOR", "ROUGE_L", "CIDER", "SPICE", "S*_m", "S_m", "CLIPScore", "RefCLIPScore", "RefMax"]
-# Metrics for Table II (scaling): semantic composite + ref-free only
-TABLE_II_METRICS = ["BLEU_4", "S_m", "S*_m", "CLIPScore", "RefCLIPScore"]
+# Metrics for Table II (scaling): n-gram + composite scores only
+TABLE_II_METRICS = ["BLEU_4", "S*_m", "S_m"]
 
 
 def load_json(path):
@@ -114,7 +114,7 @@ def generate_table_i(zeroshot_data):
 \caption{Comparison of VLM baselines on UICO urban incivility captioning (zero-shot, Prompt A).
 All metrics computed against 5 reference captions per image (3500 test images).
 $S_m$ is the composite score: mean of B@4, METEOR, ROUGE-L, CIDEr, and SPICE.
-$S^*_m$ includes CLIPScore in the composite.}
+$S^*_m$ is the SPICE-excluded composite (mean of B@4, M, R, C).}
 \label{tab:vlm_zeroshot}
 \small
 \begin{tabular}{@{}l
@@ -189,7 +189,7 @@ def generate_table_ii(zeroshot_data, fewshot_data):
 \centering
 \caption{VLM scaling behavior on UICO captioning: zero-shot $\to$ few-shot $\to$ LoRA fine-tuning.
 All results on Prompt A with 3500 test images. $S_m$ is the composite score (mean of B@4, METEOR, ROUGE-L, CIDEr, SPICE);
-$S^*_m$ additionally incorporates CLIPScore. CLIP-S and RefCLIP-S reported as $\times 100$ for readability.}
+$S^*_m$ = mean of B@4, M, R, C (SPICE-excluded). CLIP-S and RefCLIP-S reported as $\times 100$ for readability.}
 \label{tab:vlm_scaling}
 \small
 \begin{tabular}{@{}l
