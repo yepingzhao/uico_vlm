@@ -13,18 +13,16 @@ import json
 import math
 import os
 import time
-from collections import Counter
 from datetime import datetime, timezone
 
 import torch
 from torch.utils.data import DataLoader
 from transformers import get_cosine_schedule_with_warmup
 
-from config import OUTPUT_DIR, VAL_IMAGES_DIR
+from config import OUTPUT_DIR
 from config.training import TrainingConfig, get_lora_config
 from data.training_dataset import UICOInstructionDataset, collate_fn
 from models.lora import make_lora_config, load_qlora_model
-from config.prompts import PROMPT_A
 
 
 def _import_class(class_name: str):
@@ -82,7 +80,6 @@ class TrainingRunner:
         cfg.device = args.device
         cfg.seed = args.seed
         cfg.val_steps = args.val_steps
-        cfg.val_samples = args.val_samples
         cfg.val_max_samples = args.val_max_samples
 
         self._config = cfg
@@ -396,120 +393,6 @@ class TrainingRunner:
             elif key not in ("labels",):
                 kwargs[key] = value.to(device)
         return kwargs
-
-    @staticmethod
-    def _load_val_images(val_dir: str, n_samples: int) -> list:
-        """Pick n_samples deterministically from the val image directory."""
-        all_files = sorted(
-            f for f in os.listdir(val_dir)
-            if f.lower().endswith((".jpg", ".jpeg", ".png"))
-        )
-        if len(all_files) < n_samples:
-            n_samples = len(all_files)
-        step = max(1, len(all_files) // n_samples)
-        return [os.path.join(val_dir, all_files[i * step])
-                for i in range(n_samples)]
-
-    @staticmethod
-    def _compute_collapse_metrics(captions: list) -> dict:
-        """Detect mode collapse signals from a list of captions."""
-        words_per_caption = [c.lower().split() for c in captions]
-
-        lengths = [len(w) for w in words_per_caption]
-        avg_len = sum(lengths) / max(1, len(lengths))
-
-        rep_ratios = []
-        for toks in words_per_caption:
-            if len(toks) == 0:
-                rep_ratios.append(1.0)
-            else:
-                rep_ratios.append(len(set(toks)) / len(toks))
-        avg_rep = sum(rep_ratios) / max(1, len(rep_ratios))
-
-        n = len(captions)
-        if n > 1:
-            counts = Counter(captions)
-            dup_rate = (
-                sum(1 for c, cnt in counts.items() if cnt > 1) / n)
-        else:
-            dup_rate = 0.0
-
-        if n > 1:
-            bleu_scores = []
-            for i in range(n):
-                for j in range(i + 1, n):
-                    ref_words = set(words_per_caption[j])
-                    hyp_words = words_per_caption[i]
-                    if len(hyp_words) == 0:
-                        bleu_scores.append(0.0)
-                    else:
-                        matches = sum(
-                            1 for w in hyp_words if w in ref_words)
-                        bleu_scores.append(matches / len(hyp_words))
-            self_bleu = sum(bleu_scores) / len(bleu_scores)
-        else:
-            self_bleu = 0.0
-
-        return dict(
-            avg_len=round(avg_len, 1),
-            rep_ratio=round(avg_rep, 4),
-            dup_rate=round(dup_rate, 4),
-            self_bleu=round(self_bleu, 4),
-        )
-
-    def _run_validation(self, model, processor, image_processor,
-                        val_images, step, epoch, _log):
-        """Run validation inference & log collapse metrics."""
-        print(f"\n[Val] Running validation (step={step}, epoch={epoch})...",
-              flush=True)
-        model.eval()
-        captions = []
-        t0 = time.time()
-        adapter = self._adapter
-        cfg = self._config
-
-        for img_path in val_images:
-            image = __import__("PIL.Image").Image.open(
-                img_path).convert("RGB")
-            caption = adapter.validation_generate(
-                model, processor, image_processor, image,
-                PROMPT_A, cfg.device,
-            )
-            captions.append(caption)
-
-        model.train()
-        elapsed = time.time() - t0
-
-        metrics = self._compute_collapse_metrics(captions)
-        _log({"event": "val", "step": step, "epoch": epoch,
-              **metrics, "captions": captions,
-              "elapsed_s": round(elapsed, 1)})
-
-        if not self._args.no_swanlab:
-            import swanlab as _sl
-            _sl.log({f"val/{k}": v for k, v in metrics.items()},
-                    step=step)
-
-        # Warnings for red-flag metrics
-        if metrics["avg_len"] > 50:
-            print(f"  ⚠ WARNING: avg_len={metrics['avg_len']} (>50), "
-                  f"possible mode collapse!", flush=True)
-        if metrics["rep_ratio"] < 0.5:
-            print(f"  ⚠ WARNING: rep_ratio={metrics['rep_ratio']} (<0.5), "
-                  f"high repetition!", flush=True)
-        if metrics["dup_rate"] > 0.3:
-            print(f"  ⚠ WARNING: dup_rate={metrics['dup_rate']} (>0.3), "
-                  f"low diversity!", flush=True)
-        if metrics["self_bleu"] > 0.6:
-            print(f"  ⚠ WARNING: self_bleu={metrics['self_bleu']} (>0.6), "
-                  f"captions too similar!", flush=True)
-
-        print(f"  avg_len={metrics['avg_len']} "
-              f"rep_ratio={metrics['rep_ratio']} "
-              f"dup_rate={metrics['dup_rate']} "
-              f"self_bleu={metrics['self_bleu']} "
-              f"({elapsed:.1f}s)", flush=True)
-        return metrics
 
     def _compute_val_loss(self, model, val_loader, adapter,
                           device: str) -> float:
