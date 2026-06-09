@@ -10,6 +10,7 @@ Parallel to core/inference/runner.py:InferenceRunner on the inference side.
 """
 
 import json
+import math
 import os
 import time
 from collections import Counter
@@ -529,5 +530,15 @@ class TrainingRunner:
                     outputs = model(**model_kwargs, labels=labels)
             total += outputs.loss.item()
             count += 1
+            # Guard against NaN/Inf — QLoRA 4-bit has known numerical
+            # instability risk (documented in project memory).
+            if math.isnan(total) or math.isinf(total):
+                print(
+                    f"  ⚠ WARNING: val loss NaN/Inf at batch {count}, "
+                    f"skipping remaining val batches",
+                    flush=True,
+                )
+                model.train()
+                return float("inf")
         model.train()
         return total / max(1, count)
