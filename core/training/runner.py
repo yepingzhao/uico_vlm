@@ -205,15 +205,26 @@ class TrainingRunner:
                 },
             )
 
-        # ---- validation images -----------------------------------------
-        val_images = self._load_val_images(
-            VAL_IMAGES_DIR, cfg.val_samples)
+        # ---- validation set ----------------------------------------------
+        val_ds = UICOInstructionDataset(
+            ann_file=cfg.val_ann_file,
+            processor=processor,
+            seed=cfg.seed,
+            **ds_kwargs,
+        )
+        if image_processor is not None:
+            val_ds.image_processor = image_processor
+        val_loader = DataLoader(
+            val_ds, batch_size=cfg.batch_size, shuffle=False,
+            num_workers=0, pin_memory=True, collate_fn=_collate,
+        )
+        print(f"[Val] {len(val_ds)} validation examples")
 
         # ---- training loop ---------------------------------------------
         model.train()
 
         # ---- best checkpoint tracking ------------------------------------
-        self._best_val_score = float("-inf")
+        self._best_val_loss = float("inf")
         self._best_step = None
 
         global_step = 0
@@ -221,17 +232,11 @@ class TrainingRunner:
         print(f"\n[Train] {total_steps} steps, {warmup_steps} warmup")
 
         if cfg.val_steps > 0:
-            metrics = self._run_validation(
-                model, processor, image_processor, val_images,
-                global_step, epoch=0, _log=_log,
-            )
-            val_score = (
-                metrics["rep_ratio"]
-                - metrics["self_bleu"]
-                - metrics["dup_rate"]
-            )
-            if val_score > self._best_val_score:
-                self._best_val_score = val_score
+            val_loss = self._compute_val_loss(
+                model, val_loader, adapter, cfg.device)
+            print(f"  [Val] step=0 loss={val_loss:.4f}", flush=True)
+            if val_loss < self._best_val_loss:
+                self._best_val_loss = val_loss
                 self._best_step = global_step
                 best_dir = os.path.join(cfg.output_dir, "best_checkpoint")
                 model.save_pretrained(best_dir)
@@ -239,14 +244,11 @@ class TrainingRunner:
                     "event": "best_checkpoint",
                     "step": global_step,
                     "epoch": 0,
-                    "val_score": round(val_score, 4),
-                    "rep_ratio": metrics["rep_ratio"],
-                    "self_bleu": metrics["self_bleu"],
-                    "dup_rate": metrics["dup_rate"],
+                    "val_loss": round(val_loss, 4),
                 })
                 print(
                     f"  [Best] step={global_step} "
-                    f"score={val_score:.4f} → {best_dir}",
+                    f"val_loss={val_loss:.4f} → {best_dir}",
                     flush=True,
                 )
 
@@ -313,18 +315,15 @@ class TrainingRunner:
 
                     if (cfg.val_steps > 0
                             and global_step % cfg.val_steps == 0):
-                        metrics = self._run_validation(
-                            model, processor, image_processor,
-                            val_images, global_step, epoch=epoch + 1,
-                            _log=_log,
+                        val_loss = self._compute_val_loss(
+                            model, val_loader, adapter, cfg.device)
+                        print(
+                            f"  [Val] step={global_step} "
+                            f"loss={val_loss:.4f}",
+                            flush=True,
                         )
-                        val_score = (
-                            metrics["rep_ratio"]
-                            - metrics["self_bleu"]
-                            - metrics["dup_rate"]
-                        )
-                        if val_score > self._best_val_score:
-                            self._best_val_score = val_score
+                        if val_loss < self._best_val_loss:
+                            self._best_val_loss = val_loss
                             self._best_step = global_step
                             best_dir = os.path.join(
                                 cfg.output_dir, "best_checkpoint")
@@ -333,14 +332,11 @@ class TrainingRunner:
                                 "event": "best_checkpoint",
                                 "step": global_step,
                                 "epoch": epoch + 1,
-                                "val_score": round(val_score, 4),
-                                "rep_ratio": metrics["rep_ratio"],
-                                "self_bleu": metrics["self_bleu"],
-                                "dup_rate": metrics["dup_rate"],
+                                "val_loss": round(val_loss, 4),
                             })
                             print(
                                 f"  [Best] step={global_step} "
-                                f"score={val_score:.4f} → {best_dir}",
+                                f"val_loss={val_loss:.4f} → {best_dir}",
                                 flush=True,
                             )
 
@@ -366,11 +362,11 @@ class TrainingRunner:
             _log({
                 "event": "best_checkpoint_final",
                 "best_step": self._best_step,
-                "best_val_score": round(self._best_val_score, 4),
+                "best_val_loss": round(self._best_val_loss, 4),
             })
             print(
                 f"[Best] Final best: step={self._best_step} "
-                f"score={self._best_val_score:.4f}",
+                f"val_loss={self._best_val_loss:.4f}",
                 flush=True,
             )
         else:
@@ -511,3 +507,27 @@ class TrainingRunner:
               f"self_bleu={metrics['self_bleu']} "
               f"({elapsed:.1f}s)", flush=True)
         return metrics
+
+    def _compute_val_loss(self, model, val_loader, adapter,
+                          device: str) -> float:
+        """Compute average validation loss on the held-out val set.
+
+        Returns the mean masked-LM loss across all val batches.
+        Lower is better — used as the best-checkpoint criterion.
+        """
+        model.eval()
+        total = 0.0
+        count = 0
+        for batch in val_loader:
+            model_kwargs = self._build_model_kwargs(batch, device)
+            labels = batch["labels"].to(device)
+            with torch.no_grad():
+                if adapter.use_base_model_forward:
+                    outputs = model.base_model(
+                        **model_kwargs, labels=labels)
+                else:
+                    outputs = model(**model_kwargs, labels=labels)
+            total += outputs.loss.item()
+            count += 1
+        model.train()
+        return total / max(1, count)
