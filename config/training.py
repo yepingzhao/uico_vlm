@@ -25,6 +25,7 @@ class TrainingConfig:
     train_ann_file: str = os.path.join(DATA_BASE, "annotations", "captions_train.json")
     val_ann_file: str = os.path.join(DATA_BASE, "annotations", "captions_val.json")
     max_samples: int = 0
+    val_max_samples: int = 500
 
     # LoRA (community-standard for QLoRA VLM captioning)
     lora_r: int = 16

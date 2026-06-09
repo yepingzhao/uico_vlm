@@ -60,12 +60,15 @@ def main():
                         help="Limit training samples (0 = all).")
     parser.add_argument("--save_steps", type=int, default=2000)
     parser.add_argument("--logging_steps", type=int, default=50)
-    parser.add_argument("--val_steps", type=int, default=500,
+    parser.add_argument("--val_steps", type=int, default=200,
                         help="Run validation every N global steps "
                              "(0 = epoch-only).")
     parser.add_argument("--val_samples", type=int, default=10,
                         help="Number of validation images for collapse "
                              "detection.")
+    parser.add_argument("--val_max_samples", type=int, default=500,
+                        help="Max val images for loss-based best-checkpoint "
+                             "selection (0 = all).")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no_swanlab", action="store_true",

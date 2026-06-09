@@ -83,6 +83,7 @@ class TrainingRunner:
         cfg.seed = args.seed
         cfg.val_steps = args.val_steps
         cfg.val_samples = args.val_samples
+        cfg.val_max_samples = args.val_max_samples
 
         self._config = cfg
         self._processor = None
@@ -210,6 +211,7 @@ class TrainingRunner:
         val_ds = UICOInstructionDataset(
             ann_file=cfg.val_ann_file,
             processor=processor,
+            max_samples=cfg.val_max_samples,
             seed=cfg.seed,
             **ds_kwargs,
         )
