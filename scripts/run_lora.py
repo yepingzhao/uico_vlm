@@ -111,6 +111,16 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
+    # ── Resolve best checkpoint for inference ────────────────────────
+    best_ckpt_dir = os.path.join(lora_dir, "best_checkpoint")
+    best_adapter = os.path.join(best_ckpt_dir, "adapter_model.safetensors")
+    if do_inference and os.path.isfile(best_adapter):
+        print(f"[Best] Using best checkpoint: {best_ckpt_dir}")
+        lora_dir = best_ckpt_dir
+    elif do_inference and os.path.isdir(best_ckpt_dir):
+        print(f"[Best] best_checkpoint/ exists but no adapter found, "
+              f"using final: {lora_dir}")
+
     # ── Inference ──────────────────────────────────────────────────
     if do_inference:
         if not os.path.isdir(lora_dir):

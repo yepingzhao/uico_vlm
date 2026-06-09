@@ -211,15 +211,44 @@ class TrainingRunner:
 
         # ---- training loop ---------------------------------------------
         model.train()
+
+        # ---- best checkpoint tracking ------------------------------------
+        self._best_val_score = float("-inf")
+        self._best_step = None
+
         global_step = 0
         total_loss = 0.0
         print(f"\n[Train] {total_steps} steps, {warmup_steps} warmup")
 
         if cfg.val_steps > 0:
-            self._run_validation(
+            metrics = self._run_validation(
                 model, processor, image_processor, val_images,
                 global_step, epoch=0, _log=_log,
             )
+            val_score = (
+                metrics["rep_ratio"]
+                - metrics["self_bleu"]
+                - metrics["dup_rate"]
+            )
+            if val_score > self._best_val_score:
+                self._best_val_score = val_score
+                self._best_step = global_step
+                best_dir = os.path.join(cfg.output_dir, "best_checkpoint")
+                model.save_pretrained(best_dir)
+                _log({
+                    "event": "best_checkpoint",
+                    "step": global_step,
+                    "epoch": 0,
+                    "val_score": round(val_score, 4),
+                    "rep_ratio": metrics["rep_ratio"],
+                    "self_bleu": metrics["self_bleu"],
+                    "dup_rate": metrics["dup_rate"],
+                })
+                print(
+                    f"  [Best] step={global_step} "
+                    f"score={val_score:.4f} → {best_dir}",
+                    flush=True,
+                )
 
         for epoch in range(cfg.num_epochs):
             print(f"\n{'='*50}\n[Epoch] {epoch+1}/{cfg.num_epochs}\n"
@@ -284,11 +313,36 @@ class TrainingRunner:
 
                     if (cfg.val_steps > 0
                             and global_step % cfg.val_steps == 0):
-                        self._run_validation(
+                        metrics = self._run_validation(
                             model, processor, image_processor,
                             val_images, global_step, epoch=epoch + 1,
                             _log=_log,
                         )
+                        val_score = (
+                            metrics["rep_ratio"]
+                            - metrics["self_bleu"]
+                            - metrics["dup_rate"]
+                        )
+                        if val_score > self._best_val_score:
+                            self._best_val_score = val_score
+                            self._best_step = global_step
+                            best_dir = os.path.join(
+                                cfg.output_dir, "best_checkpoint")
+                            model.save_pretrained(best_dir)
+                            _log({
+                                "event": "best_checkpoint",
+                                "step": global_step,
+                                "epoch": epoch + 1,
+                                "val_score": round(val_score, 4),
+                                "rep_ratio": metrics["rep_ratio"],
+                                "self_bleu": metrics["self_bleu"],
+                                "dup_rate": metrics["dup_rate"],
+                            })
+                            print(
+                                f"  [Best] step={global_step} "
+                                f"score={val_score:.4f} → {best_dir}",
+                                flush=True,
+                            )
 
             avg_ep = (
                 epoch_loss / len(train_loader)
@@ -306,6 +360,23 @@ class TrainingRunner:
         _log({"event": "done", "step": global_step,
               "output_dir": cfg.output_dir})
         print(f"\n[Done] -> {cfg.output_dir}")
+
+        # ---- best checkpoint summary ----------------------------------
+        if self._best_step is not None:
+            _log({
+                "event": "best_checkpoint_final",
+                "best_step": self._best_step,
+                "best_val_score": round(self._best_val_score, 4),
+            })
+            print(
+                f"[Best] Final best: step={self._best_step} "
+                f"score={self._best_val_score:.4f}",
+                flush=True,
+            )
+        else:
+            print("[Best] No validation runs — using final checkpoint.",
+                  flush=True)
+
         return cfg.output_dir
 
     # -- Internal helpers ------------------------------------------------
@@ -439,3 +510,4 @@ class TrainingRunner:
               f"dup_rate={metrics['dup_rate']} "
               f"self_bleu={metrics['self_bleu']} "
               f"({elapsed:.1f}s)", flush=True)
+        return metrics
